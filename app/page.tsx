@@ -34,8 +34,12 @@ export default async function HomePage() {
             </Link>
           </div>
         </div>
-        <div className="aspect-[4/3] bg-white border border-line rounded-2xl flex items-center justify-center text-graphite/40 text-sm">
-          hero product image
+        <div className="aspect-[4/3] bg-white border border-line rounded-2xl flex items-center justify-center p-12">
+          <img
+            src="/qr-code.png"
+            alt="Scan to visit orchard. on your phone"
+            className="w-full h-full object-contain"
+          />
         </div>
       </section>
 
