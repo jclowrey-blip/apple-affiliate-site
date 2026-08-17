@@ -14,10 +14,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <h3 className="font-display text-base text-ink">{product.name}</h3>
       </Link>
       <p className="text-sm text-graphite mt-1 line-clamp-2">{product.blurb}</p>
-      <div className="flex items-center gap-1 mt-2 text-xs text-graphite">
-        <span className="font-mono">{product.rating.toFixed(1)}★</span>
-        <span>({product.ratingCount.toLocaleString()})</span>
-      </div>
+     
       <div className="flex items-center justify-between mt-4">
         <div>
           <div className="font-mono text-lg text-ink">
