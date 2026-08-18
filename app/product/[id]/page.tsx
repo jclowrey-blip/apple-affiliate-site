@@ -14,11 +14,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
 
       <div>
         <h1 className="font-display text-3xl text-ink">{product.name}</h1>
-        <div className="flex items-center gap-2 mt-2 text-sm text-graphite">
-          <span className="font-mono">{product.rating.toFixed(1)}★</span>
-          <span>({product.ratingCount.toLocaleString()} ratings on Amazon)</span>
-        </div>
-
+        
         <p className="text-graphite mt-4">{product.blurb}</p>
 
         <div className="mt-6 border border-line rounded-2xl p-5 bg-white">
