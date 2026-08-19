@@ -20,7 +20,7 @@ export type Product = {
 };
 
 // Replace YOUR-TAG-20 with your real Amazon Associates tracking ID.
-const ASSOCIATE_TAG = "YOUR-TAG-20";
+const ASSOCIATE_TAG = "orchardapple-20";
 
 export function buildAmazonUrl(asin: string) {
   return `https://www.amazon.com/dp/${asin}?tag=${ASSOCIATE_TAG}&linkCode=ogi&th=1&psc=1`;
