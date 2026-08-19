@@ -57,8 +57,8 @@ export default function PrivacyPage() {
 
         <p>
           Questions about this policy can be sent to{" "}
-          <a href="mailto:contact@orchard-example.com" className="underline text-ink">
-            contact@orchard-example.com
+          <a href="mailto:jc.lowrey@gmail.com" className="underline text-ink">
+            jc.lowrey@gmail.com
           </a>
           .
         </p>
