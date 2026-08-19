@@ -1,15 +1,19 @@
 import { getProductById, formatPrice } from "@/lib/products";
 import AffiliateButton from "@/components/AffiliateButton";
 import { notFound } from "next/navigation";
+import { CategoryIcon } from "@/components/ProductCard";
 
 export default async function ProductPage({ params }: { params: { id: string } }) {
   const product = await getProductById(params.id);
   if (!product) return notFound();
 
   return (
-    <div className="py-14 grid md:grid-cols-2 gap-12">
-     <div className="aspect-square bg-white border border-line rounded-2xl flex items-center justify-center text-graphite/40 text-sm">
-  product gallery
+          <div className="py-14 grid md:grid-cols-2 gap-12">
+          <div className="aspect-square bg-white border border-line rounded-2xl flex items-center justify-center text-graphite/25">
+          <svg viewBox="0 0 64 64" className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <CategoryIcon category={product.category} />
+          </svg>
+        </div>  
 </div>
 
       <div>
