@@ -14,7 +14,6 @@ export default async function ProductPage({ params }: { params: { id: string } }
             <CategoryIcon category={product.category} />
           </svg>
         </div>  
-</div>
 
       <div>
         <h1 className="font-display text-3xl text-ink">{product.name}</h1>
