@@ -3,7 +3,7 @@ import type { Product } from "@/lib/products";
 import { formatPrice } from "@/lib/products";
 import AffiliateButton from "./AffiliateButton";
 
-function CategoryIcon({ category }: { category: Product["category"] }) {
+export function CategoryIcon({ category }: { category: Product["category"] }) {
   switch (category) {
     case "iphone":
       return (
