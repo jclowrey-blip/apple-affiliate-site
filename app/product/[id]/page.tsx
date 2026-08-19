@@ -8,8 +8,8 @@ export default async function ProductPage({ params }: { params: { id: string } }
 
   return (
     <div className="py-14 grid md:grid-cols-2 gap-12">
-      <div className="aspect-square bg-white border border-line rounded-2xl overflow-hidden flex items-center justify-center">
-  <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
+     <div className="aspect-square bg-white border border-line rounded-2xl flex items-center justify-center text-graphite/40 text-sm">
+  product gallery
 </div>
 
       <div>
