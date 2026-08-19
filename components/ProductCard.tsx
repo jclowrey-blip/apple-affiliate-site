@@ -7,10 +7,9 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group border border-line rounded-2xl p-5 flex flex-col bg-white hover:border-graphite/40 transition-colors">
       <Link href={`/product/${product.id}`} className="block">
-        <div className="aspect-square bg-paper rounded-xl mb-4 flex items-center justify-center text-graphite/40 text-xs">
-          {/* Replace with <Image src={product.image} .../> once real assets are in /public */}
-          product image
-        </div>
+<div className="aspect-square bg-paper rounded-xl mb-4 overflow-hidden flex items-center justify-center">
+  <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
+</div>        
         <h3 className="font-display text-base text-ink">{product.name}</h3>
       </Link>
       <p className="text-sm text-graphite mt-1 line-clamp-2">{product.blurb}</p>
