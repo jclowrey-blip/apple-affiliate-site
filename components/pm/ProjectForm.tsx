@@ -41,11 +41,10 @@ export default function ProjectForm({ project, onClose }: { project?: Project; o
   async function remove() {
     if (!project) return;
     setBusy(true);
+    // On success the action redirects to the dashboard and never returns here.
     const result = await deleteProjectAction({ id: project.id });
     setBusy(false);
-    if (!result.ok) return setError(result.error);
-    router.push("/pm");
-    onClose();
+    if (result && !result.ok) setError(result.error);
   }
 
   return (

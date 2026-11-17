@@ -4,6 +4,7 @@
 // input with zod, calls the data layer, and returns an ActionResult instead
 // of throwing, so the UI can roll back optimistic updates and show the error.
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { z } from "zod";
 import { hasAccess } from "./access";
 import * as milestones from "./milestones";
@@ -77,11 +78,18 @@ export async function updateProjectAction(input: UpdateProjectInput): Promise<Ac
   return run(updateProjectSchema, input, ({ id, ...patch }) => projects.updateProject(id, patch));
 }
 
+/**
+ * Deletes a project and sends the browser to the dashboard. The redirect
+ * happens here, on the server, because the page that called this belongs to
+ * the project that no longer exists. Only returns when the delete failed.
+ */
 export async function deleteProjectAction(input: { id: string }): Promise<ActionResult> {
-  return run(idSchema, input, async ({ id }) => {
+  const result = await run(idSchema, input, async ({ id }) => {
     await projects.deleteProject(id);
     return null;
   });
+  if (result.ok) redirect("/pm");
+  return result;
 }
 
 // Tasks

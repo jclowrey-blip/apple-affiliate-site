@@ -61,7 +61,12 @@ export default function Timeline({
 
   // Start with today in view rather than the far-left edge of the range.
   useEffect(() => {
-    if (scroller.current) scroller.current.scrollLeft = Math.max(0, todayX - 7 * DAY_W);
+    const el = scroller.current;
+    if (!el) return;
+    // Show up to a week of history, less on narrow screens where the track is short.
+    const labelWidth = el.querySelector<HTMLElement>("[data-label]")?.offsetWidth ?? 0;
+    const lead = Math.min(7 * DAY_W, (el.clientWidth - labelWidth) / 4);
+    el.scrollLeft = Math.max(0, todayX - lead);
   }, [todayX]);
 
   if (groups.length === 0) {
@@ -93,7 +98,9 @@ export default function Timeline({
       >
         <div className="min-w-max">
           <div className="flex border-b border-line bg-paper text-xs text-graphite">
-            <div className={`${labelCell} bg-paper font-medium`}>Milestone / task</div>
+            <div data-label className={`${labelCell} bg-paper font-medium`}>
+              Milestone / task
+            </div>
             <div className="relative h-12" style={{ width }}>
               {weeks.map((week, i) => (
                 <span
