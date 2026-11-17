@@ -26,7 +26,7 @@ import { usePm } from "./PmContext";
 import { STATUS_DOT, btnPrimary } from "./styles";
 import TaskCard from "./TaskCard";
 import { EmptyState, Kbd } from "./ui";
-import { useOptimisticTasks } from "./useOptimisticTasks";
+import { useOptimisticState } from "./useOptimisticState";
 
 function isStatus(id: unknown): id is TaskStatus {
   return (TASK_STATUSES as readonly unknown[]).includes(id);
@@ -96,7 +96,7 @@ function Column({ status, tasks, today }: { status: TaskStatus; tasks: Task[]; t
 
 export default function Board({ tasks: serverTasks, today }: { tasks: Task[]; today: DateString }) {
   const { openQuickAdd } = usePm();
-  const { tasks, setTasks, commit } = useOptimisticTasks(serverTasks);
+  const { value: tasks, setValue: setTasks, commit } = useOptimisticState(serverTasks);
   const [activeId, setActiveId] = useState<string | null>(null);
   const snapshot = useRef<Task[]>(serverTasks);
 

@@ -20,7 +20,7 @@ import { usePm } from "./PmContext";
 import { STATUS_DOT, btnPrimary, btnSecondary, selectClass } from "./styles";
 import TaskLink from "./TaskLink";
 import { DueDate, EmptyState, Kbd, LabelChip } from "./ui";
-import { useOptimisticTasks } from "./useOptimisticTasks";
+import { useOptimisticState } from "./useOptimisticState";
 
 type SortKey = "status" | "title" | "priority" | "dueDate";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
@@ -65,13 +65,16 @@ function matches(task: Task, f: Filters, today: DateString): boolean {
 
 export default function TaskTable({ tasks: serverTasks, today }: { tasks: Task[]; today: DateString }) {
   const { openQuickAdd } = usePm();
-  const { tasks, mutate } = useOptimisticTasks(serverTasks);
+  const { value: tasks, mutate } = useOptimisticState(serverTasks);
   const [sort, setSort] = useState<Sort>({ key: "status", dir: "asc" });
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
 
   const labels = useMemo(() => Array.from(new Set(tasks.flatMap((t) => t.labels))).sort(), [tasks]);
   // A label filter can outlive its label (the last task using it was edited).
-  const active: Filters = filters.label !== "all" && !labels.includes(filters.label) ? { ...filters, label: "all" } : filters;
+  const active = useMemo<Filters>(
+    () => (filters.label !== "all" && !labels.includes(filters.label) ? { ...filters, label: "all" } : filters),
+    [filters, labels],
+  );
   const visible = useMemo(
     () => sortTasks(tasks.filter((t) => matches(t, active, today)), sort),
     [tasks, active, sort, today],
