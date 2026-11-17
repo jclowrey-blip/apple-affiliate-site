@@ -4,6 +4,7 @@ import TaskPanelSlot from "@/components/pm/TaskPanelSlot";
 import TaskLink from "@/components/pm/TaskLink";
 import { btnPrimary } from "@/components/pm/styles";
 import { DueDate, EmptyState, PriorityBadge, ProgressBar, StatusBadge } from "@/components/pm/ui";
+import { requireAccess } from "@/lib/pm/access";
 import { endOfWeek, todayString } from "@/lib/pm/dates";
 import { listProjects } from "@/lib/pm/projects";
 import { listOpenTasksDueBy } from "@/lib/pm/tasks";
@@ -38,6 +39,7 @@ function TaskRows({ tasks, today }: { tasks: TaskWithProject[]; today: DateStrin
 }
 
 export default async function DashboardPage({ searchParams }: { searchParams: { task?: string | string[] } }) {
+  await requireAccess();
   const today = todayString();
   const weekEnd = endOfWeek(today);
   const [projects, due] = await Promise.all([listProjects(), listOpenTasksDueBy(weekEnd)]);

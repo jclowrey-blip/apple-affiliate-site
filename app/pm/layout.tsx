@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import "../globals.css";
 import PmShell from "@/components/pm/PmShell";
 import { hasAccess } from "@/lib/pm/access";
@@ -14,10 +13,23 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 // Root layout for everything under /pm (the storefront has its own in
-// app/(storefront)). This is the one place to add an auth check later:
-// see lib/pm/access.ts.
+// app/(storefront)). hasAccess() is the access gate; to add auth later,
+// change its body in lib/pm/access.ts.
+//
+// Without access the layout renders a bare document and loads no data. The
+// page inside it then responds with a 404 (each page calls requireAccess()),
+// which shows app/pm/not-found.tsx. The layout does not call notFound()
+// itself because a root layout has nothing above it to render the 404 into.
 export default async function PmLayout({ children }: { children: React.ReactNode }) {
-  if (!hasAccess()) notFound();
+  if (!(await hasAccess())) {
+    return (
+      <html lang="en">
+        <body>
+          <main className="mx-auto max-w-content px-4 py-6 sm:px-6">{children}</main>
+        </body>
+      </html>
+    );
+  }
   const projects = await listProjects();
 
   return (

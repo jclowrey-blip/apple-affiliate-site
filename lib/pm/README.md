@@ -16,7 +16,8 @@ npm run dev              # http://localhost:3000/pm
 
 In a production build (`npm run build && npm start`) `/pm` returns 404 unless
 `PM_ENABLED=1` is set. There is no authentication yet; `hasAccess()` in
-`access.ts` is the one place to add it.
+`access.ts` is the one place to add it (the layout, every page and every
+server action already call it).
 
 ## Layout
 

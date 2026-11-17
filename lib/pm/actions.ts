@@ -50,7 +50,7 @@ async function run<S extends z.ZodType, T>(
   fn: (data: z.output<S>) => Promise<T>,
   opts: { revalidate?: boolean } = {},
 ): Promise<ActionResult<T>> {
-  if (!hasAccess()) return { ok: false, error: "The project tool is not available." };
+  if (!(await hasAccess())) return { ok: false, error: "The project tool is not available." };
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   try {
