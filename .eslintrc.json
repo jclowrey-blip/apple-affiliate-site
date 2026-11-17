@@ -1,0 +1,9 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["app/(storefront)/**"],
+      "rules": { "react/no-unescaped-entities": "off" }
+    }
+  ]
+}

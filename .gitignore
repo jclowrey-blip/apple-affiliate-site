@@ -1,3 +1,8 @@
-node_modules 
+node_modules
 next
-.next 
+.next
+
+# /pm tool
+.env
+prisma/*.db
+prisma/*.db-journal
