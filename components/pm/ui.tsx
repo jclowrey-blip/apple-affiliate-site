@@ -94,8 +94,8 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 /**
  * Modal dialog. Closes on Escape and backdrop click, and returns focus to
- * whatever was focused when it opened. `data-pm-overlay` lets the global
- * keyboard shortcuts know a dialog is open.
+ * whatever was focused when it opened. The data attributes let the global
+ * keyboard shortcuts and the task panel know a dialog is open.
  */
 export function Modal({
   title,
@@ -129,6 +129,7 @@ export function Modal({
   return (
     <div
       data-pm-overlay
+      data-pm-modal
       className={`fixed inset-0 z-[60] flex justify-center bg-ink/30 p-4 ${
         position === "top" ? "items-start pt-[12vh]" : "items-end sm:items-center"
       }`}
