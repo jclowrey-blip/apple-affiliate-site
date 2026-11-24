@@ -38,7 +38,9 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48)
     .replace(/-+$/g, "");
-  return slug || "project";
+  // "api" is taken by the assistant endpoint at /pm/api.
+  if (!slug || slug === "api") return slug ? "api-project" : "project";
+  return slug;
 }
 
 async function uniqueSlug(name: string): Promise<string> {

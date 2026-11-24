@@ -7,11 +7,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ProjectWithProgress, TaskStatus } from "@/lib/pm/types";
+import AssistantPanel from "./AssistantPanel";
 import { PmContext, type PmContextValue } from "./PmContext";
 import QuickAdd from "./QuickAdd";
 import SearchPalette from "./SearchPalette";
 import { btnPrimary, btnSecondary } from "./styles";
 import { Kbd } from "./ui";
+import { useAssistant } from "./useAssistant";
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -27,6 +29,19 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
   const [quickAdd, setQuickAdd] = useState<{ status?: TaskStatus } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const assistant = useAssistant(params.project);
+  const setAssistantDraft = assistant.setDraft;
+
+  const openAssistant = useCallback(
+    (draft?: string) => {
+      setQuickAdd(null);
+      setSearchOpen(false);
+      if (draft) setAssistantDraft(draft);
+      setAssistantOpen(true);
+    },
+    [setAssistantDraft],
+  );
 
   const openQuickAdd = useCallback((opts?: { status?: TaskStatus }) => {
     setSearchOpen(false);
@@ -67,8 +82,8 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
   );
 
   const context = useMemo<PmContextValue>(
-    () => ({ projects, showError, openQuickAdd, openSearch, openAssistant: () => {} }),
-    [projects, showError, openQuickAdd, openSearch],
+    () => ({ projects, showError, openQuickAdd, openSearch, openAssistant }),
+    [projects, showError, openQuickAdd, openSearch, openAssistant],
   );
 
   return (
@@ -103,6 +118,10 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
               <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
             </span>
           </button>
+          <button type="button" className={`${btnSecondary} shrink-0`} onClick={() => openAssistant()} aria-label="Open assistant">
+            <span aria-hidden>✦</span>
+            <span className="hidden sm:inline">Assistant</span>
+          </button>
           <button type="button" className={`${btnPrimary} shrink-0`} onClick={() => openQuickAdd()} aria-label="New task">
             <span aria-hidden>+</span>
             <span className="hidden sm:inline">New task</span>
@@ -124,6 +143,20 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
         />
       )}
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}
+      {assistantOpen && (
+        <AssistantPanel
+          messages={assistant.messages}
+          draft={assistant.draft}
+          busy={assistant.busy}
+          activity={assistant.activity}
+          projectName={projects.find((p) => p.slug === params.project)?.name}
+          onDraft={assistant.setDraft}
+          onSend={assistant.send}
+          onStop={assistant.stop}
+          onClear={assistant.clear}
+          onClose={() => setAssistantOpen(false)}
+        />
+      )}
 
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (
