@@ -12,24 +12,103 @@ datasource db {
 }
 
 model Project {
-  id          String      @id @default(cuid())
-  slug        String      @unique
+  id          String         @id @default(cuid())
+  slug        String         @unique
   name        String
-  description String      @default("")
-  color       String      @default("#2F6F4E")
-  status      String      @default("active") // active | on_hold | done
-  createdAt   DateTime    @default(now())
+  description String         @default("")
+  color       String         @default("#2F6F4E")
+  status      String         @default("active") // active | on_hold | done
+  createdAt   DateTime       @default(now())
+  budget      BigInt         @default(0) // approved total, whole dollars (0 = not set)
   tasks       Task[]
   milestones  Milestone[]
+  workstreams Workstream[]
+  risks       Risk[]
+  reports     StatusReport[]
+}
+
+// A major strand of a large program (e.g. engineering, procurement). Optional:
+// small projects can ignore workstreams entirely.
+model Workstream {
+  id          String       @id @default(cuid())
+  name        String
+  description String       @default("")
+  owner       String       @default("")
+  order       Int          @default(0)
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestones  Milestone[]
+  budgetLines BudgetLine[]
+  risks       Risk[]
+
+  @@index([projectId])
+}
+
+// One line of a workstream's budget. Amounts are whole dollars.
+model BudgetLine {
+  id           String     @id @default(cuid())
+  name         String
+  budget       BigInt     @default(0)
+  committed    BigInt     @default(0)
+  spent        BigInt     @default(0)
+  forecast     BigInt     @default(0) // expected final cost
+  order        Int        @default(0)
+  workstreamId String
+  workstream   Workstream @relation(fields: [workstreamId], references: [id], onDelete: Cascade)
+
+  @@index([workstreamId])
+}
+
+// Risk and issue register entry.
+model Risk {
+  id           String      @id @default(cuid())
+  kind         String      @default("risk") // risk | issue
+  title        String
+  description  String      @default("")
+  mitigation   String      @default("")
+  owner        String      @default("")
+  likelihood   Int         @default(2) // 1 low, 2 medium, 3 high
+  impact       Int         @default(2) // 1 low, 2 medium, 3 high
+  status       String      @default("open") // open | mitigating | closed
+  dueDate      DateTime?
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workstreamId String?
+  workstream   Workstream? @relation(fields: [workstreamId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([projectId, status])
+}
+
+// A saved status report (markdown).
+model StatusReport {
+  id          String   @id @default(cuid())
+  title       String
+  periodStart DateTime
+  periodEnd   DateTime
+  body        String
+  source      String   @default("generated") // generated | assistant
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
 }
 
 model Milestone {
-  id         String   @id @default(cuid())
-  name       String
-  targetDate DateTime
-  projectId  String
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks      Task[]
+  id            String      @id @default(cuid())
+  name          String
+  targetDate    DateTime // current forecast date
+  baselineDate  DateTime? // originally planned date; slippage = targetDate - baselineDate
+  completedDate DateTime?
+  projectId     String
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workstreamId  String?
+  workstream    Workstream? @relation(fields: [workstreamId], references: [id], onDelete: SetNull)
+  tasks         Task[]
+  dependsOn     Milestone[] @relation("MilestoneDependencies")
+  requiredBy    Milestone[] @relation("MilestoneDependencies")
 
   @@index([projectId])
 }

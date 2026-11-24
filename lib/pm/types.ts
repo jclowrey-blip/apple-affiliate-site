@@ -40,6 +40,8 @@ export type Project = {
   color: string;
   status: ProjectStatus;
   createdAt: string;
+  /** Approved total budget in whole dollars; 0 when not set. */
+  budget: number;
 };
 
 export type ProjectWithProgress = Project & { totalTasks: number; doneTasks: number };
@@ -47,8 +49,85 @@ export type ProjectWithProgress = Project & { totalTasks: number; doneTasks: num
 export type Milestone = {
   id: string;
   projectId: string;
+  workstreamId: string | null;
   name: string;
+  /** Current forecast date. */
   targetDate: DateString;
+  /** Originally planned date. Slippage is targetDate minus baselineDate. */
+  baselineDate: DateString;
+  completedDate: DateString | null;
+  /** Milestones that must finish before this one. */
+  dependsOnIds: string[];
+};
+
+export type Workstream = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  owner: string;
+  order: number;
+};
+
+/** Amounts are whole dollars. */
+export type BudgetLine = {
+  id: string;
+  workstreamId: string;
+  name: string;
+  budget: number;
+  committed: number;
+  spent: number;
+  /** Expected final cost. */
+  forecast: number;
+  order: number;
+};
+
+export const RISK_KINDS = ["risk", "issue"] as const;
+export type RiskKind = (typeof RISK_KINDS)[number];
+export const RISK_KIND_LABELS: Record<RiskKind, string> = { risk: "Risk", issue: "Issue" };
+
+export const RISK_STATUSES = ["open", "mitigating", "closed"] as const;
+export type RiskStatus = (typeof RISK_STATUSES)[number];
+export const RISK_STATUS_LABELS: Record<RiskStatus, string> = {
+  open: "Open",
+  mitigating: "Mitigating",
+  closed: "Closed",
+};
+
+/** Likelihood and impact are both rated 1 (low) to 3 (high). */
+export const LEVELS = [1, 2, 3] as const;
+export type Level = (typeof LEVELS)[number];
+export const LEVEL_LABELS: Record<Level, string> = { 1: "Low", 2: "Medium", 3: "High" };
+
+export type Risk = {
+  id: string;
+  projectId: string;
+  workstreamId: string | null;
+  kind: RiskKind;
+  title: string;
+  description: string;
+  mitigation: string;
+  owner: string;
+  likelihood: Level;
+  impact: Level;
+  status: RiskStatus;
+  dueDate: DateString | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RiskWithProject = Risk & { project: ProjectRef };
+
+export type StatusReport = {
+  id: string;
+  projectId: string;
+  title: string;
+  periodStart: DateString;
+  periodEnd: DateString;
+  /** Markdown. */
+  body: string;
+  source: "generated" | "assistant";
+  createdAt: string;
 };
 
 export type Subtask = {
@@ -95,3 +174,11 @@ export class PmNotFoundError extends Error {
 
 /** What every server action returns: data on success, a user-facing message on failure. */
 export type ActionResult<T = null> = { ok: true; data: T } | { ok: false; error: string };
+
+/** A request that is well-formed but not allowed (for example a dependency loop). */
+export class PmValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PmValidationError";
+  }
+}

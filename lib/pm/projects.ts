@@ -14,6 +14,7 @@ type ProjectRow = {
   color: string;
   status: string;
   createdAt: Date;
+  budget: bigint;
 };
 
 function toProject(row: ProjectRow): Project {
@@ -25,6 +26,7 @@ function toProject(row: ProjectRow): Project {
     color: row.color,
     status: row.status as ProjectStatus,
     createdAt: row.createdAt.toISOString(),
+    budget: Number(row.budget),
   };
 }
 
@@ -69,11 +71,17 @@ export async function getProjectBySlug(slug: string): Promise<Project | null> {
   return row ? toProject(row) : null;
 }
 
+export async function getProjectById(id: string): Promise<Project | null> {
+  const row = await prisma.project.findUnique({ where: { id } });
+  return row ? toProject(row) : null;
+}
+
 export async function createProject(input: {
   name: string;
   description?: string;
   color: string;
   status?: ProjectStatus;
+  budget?: number;
 }): Promise<Project> {
   const row = await prisma.project.create({
     data: {
@@ -82,6 +90,7 @@ export async function createProject(input: {
       description: input.description ?? "",
       color: input.color,
       status: input.status ?? "active",
+      budget: BigInt(input.budget ?? 0),
     },
   });
   return toProject(row);
@@ -90,11 +99,17 @@ export async function createProject(input: {
 /** Updates a project. The slug is left alone on rename so existing URLs keep working. */
 export async function updateProject(
   id: string,
-  patch: { name?: string; description?: string; color?: string; status?: ProjectStatus },
+  patch: { name?: string; description?: string; color?: string; status?: ProjectStatus; budget?: number },
 ): Promise<Project> {
   const existing = await prisma.project.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new PmNotFoundError("Project");
-  return toProject(await prisma.project.update({ where: { id }, data: patch }));
+  const { budget, ...rest } = patch;
+  return toProject(
+    await prisma.project.update({
+      where: { id },
+      data: { ...rest, budget: budget === undefined ? undefined : BigInt(budget) },
+    }),
+  );
 }
 
 /** Deletes a project along with its tasks, subtasks and milestones. */

@@ -7,10 +7,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
 import { hasAccess } from "./access";
+import * as budget from "./budget";
 import * as milestones from "./milestones";
+import { getProgramSnapshot } from "./program";
+import { buildStatusReport, reportTitle } from "./report-builder";
+import * as reports from "./reports";
+import * as risks from "./risks";
+import * as workstreams from "./workstreams";
 import * as projects from "./projects";
 import {
+  createBudgetLineSchema,
   createMilestoneSchema,
+  createRiskSchema,
+  createWorkstreamSchema,
+  generateReportSchema,
+  updateBudgetLineSchema,
+  updateReportSchema,
+  updateRiskSchema,
+  updateWorkstreamSchema,
   createProjectSchema,
   createSubtaskSchema,
   createTaskSchema,
@@ -21,7 +35,15 @@ import {
   updateProjectSchema,
   updateSubtaskSchema,
   updateTaskSchema,
+  type CreateBudgetLineInput,
   type CreateMilestoneInput,
+  type CreateRiskInput,
+  type CreateWorkstreamInput,
+  type GenerateReportInput,
+  type UpdateBudgetLineInput,
+  type UpdateReportInput,
+  type UpdateRiskInput,
+  type UpdateWorkstreamInput,
   type CreateProjectInput,
   type CreateSubtaskInput,
   type CreateTaskInput,
@@ -36,8 +58,13 @@ import * as subtasks from "./subtasks";
 import * as tasks from "./tasks";
 import {
   PmNotFoundError,
+  PmValidationError,
   type ActionResult,
+  type BudgetLine,
   type Milestone,
+  type Risk,
+  type StatusReport,
+  type Workstream,
   type Project,
   type SearchResult,
   type Subtask,
@@ -63,6 +90,7 @@ async function run<S extends z.ZodType, T>(
       revalidatePath("/pm", "layout");
       return { ok: false, error: `${error.message}. It may have been deleted.` };
     }
+    if (error instanceof PmValidationError) return { ok: false, error: error.message };
     console.error("[pm] action failed", error);
     return { ok: false, error: "Couldn't save that change. Try again." };
   }
@@ -143,6 +171,86 @@ export async function updateMilestoneAction(input: UpdateMilestoneInput): Promis
 export async function deleteMilestoneAction(input: { id: string }): Promise<ActionResult> {
   return run(idSchema, input, async ({ id }) => {
     await milestones.deleteMilestone(id);
+    return null;
+  });
+}
+
+// Workstreams
+
+export async function createWorkstreamAction(input: CreateWorkstreamInput): Promise<ActionResult<Workstream>> {
+  return run(createWorkstreamSchema, input, (data) => workstreams.createWorkstream(data));
+}
+
+export async function updateWorkstreamAction(input: UpdateWorkstreamInput): Promise<ActionResult<Workstream>> {
+  return run(updateWorkstreamSchema, input, ({ id, ...patch }) => workstreams.updateWorkstream(id, patch));
+}
+
+export async function deleteWorkstreamAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await workstreams.deleteWorkstream(id);
+    return null;
+  });
+}
+
+// Budget
+
+export async function createBudgetLineAction(input: CreateBudgetLineInput): Promise<ActionResult<BudgetLine>> {
+  return run(createBudgetLineSchema, input, (data) => budget.createBudgetLine(data));
+}
+
+export async function updateBudgetLineAction(input: UpdateBudgetLineInput): Promise<ActionResult<BudgetLine>> {
+  return run(updateBudgetLineSchema, input, ({ id, ...patch }) => budget.updateBudgetLine(id, patch));
+}
+
+export async function deleteBudgetLineAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await budget.deleteBudgetLine(id);
+    return null;
+  });
+}
+
+// Risks and issues
+
+export async function createRiskAction(input: CreateRiskInput): Promise<ActionResult<Risk>> {
+  return run(createRiskSchema, input, (data) => risks.createRisk(data));
+}
+
+export async function updateRiskAction(input: UpdateRiskInput): Promise<ActionResult<Risk>> {
+  return run(updateRiskSchema, input, ({ id, ...patch }) => risks.updateRisk(id, patch));
+}
+
+export async function deleteRiskAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await risks.deleteRisk(id);
+    return null;
+  });
+}
+
+// Status reports
+
+/** Builds a report from the tracked data (no AI) and saves it. */
+export async function generateReportAction(input: GenerateReportInput): Promise<ActionResult<StatusReport>> {
+  return run(generateReportSchema, input, async ({ projectId, periodStart, periodEnd }) => {
+    const project = await projects.getProjectById(projectId);
+    if (!project) throw new PmNotFoundError("Project");
+    const snapshot = await getProgramSnapshot(project);
+    return reports.createReport({
+      projectId,
+      title: reportTitle(project.name, periodEnd),
+      periodStart,
+      periodEnd,
+      body: buildStatusReport(snapshot, { start: periodStart, end: periodEnd }),
+    });
+  });
+}
+
+export async function updateReportAction(input: UpdateReportInput): Promise<ActionResult<StatusReport>> {
+  return run(updateReportSchema, input, ({ id, ...patch }) => reports.updateReport(id, patch));
+}
+
+export async function deleteReportAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await reports.deleteReport(id);
     return null;
   });
 }
