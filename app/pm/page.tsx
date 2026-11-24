@@ -3,6 +3,7 @@ import { ProjectStatusBadge } from "@/components/pm/Badges";
 import EmptyState from "@/components/pm/EmptyState";
 import NewProjectForm from "@/components/pm/NewProjectForm";
 import ProgressBar from "@/components/pm/ProgressBar";
+import TaskPanelLoader from "@/components/pm/TaskPanelLoader";
 import TaskRow from "@/components/pm/TaskRow";
 import { endOfWeek, formatDate, todayISO } from "@/lib/pm/dates";
 import { listProjectSummaries } from "@/lib/pm/projects";
@@ -48,7 +49,7 @@ function TaskSection({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: { task?: string | string[] } }) {
   const today = todayISO();
   const weekEnd = endOfWeek(today);
   const [projects, overdue, dueThisWeek] = await Promise.all([
@@ -117,6 +118,7 @@ export default async function DashboardPage() {
           empty="Nothing due this week"
         />
       </div>
+      <TaskPanelLoader taskId={searchParams.task} />
     </div>
   );
 }
