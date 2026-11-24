@@ -1,0 +1,78 @@
+// Data model for the private /pm project management tool.
+// SQLite has no enums: status/priority are strings validated by zod in lib/pm/schemas.ts.
+// Dates without a time component (dueDate, targetDate) are stored as "YYYY-MM-DD" strings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String      @default("")
+  color       String      @default("#2F6F4E")
+  status      String      @default("active") // active | on_hold | done
+  createdAt   DateTime    @default(now())
+  tasks       Task[]
+  milestones  Milestone[]
+  labels      Label[]
+}
+
+model Milestone {
+  id         String  @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  targetDate String // YYYY-MM-DD
+  tasks      Task[]
+
+  @@index([projectId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId String?
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  title       String
+  description String     @default("") // markdown
+  status      String     @default("todo") // backlog | todo | in_progress | done
+  priority    String     @default("medium") // low | medium | high
+  dueDate     String? // YYYY-MM-DD
+  position    Int        @default(0) // order within its status column
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  subtasks    Subtask[]
+  labels      Label[]
+
+  @@index([projectId, status, position])
+  @@index([dueDate])
+}
+
+model Subtask {
+  id       String  @id @default(cuid())
+  taskId   String
+  task     Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title    String
+  done     Boolean @default(false)
+  position Int     @default(0)
+
+  @@index([taskId])
+}
+
+model Label {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  tasks     Task[]
+
+  @@unique([projectId, name])
+}
