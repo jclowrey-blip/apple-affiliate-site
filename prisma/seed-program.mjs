@@ -16,23 +16,23 @@ const M = 1_000_000;
 
 // key, name, owner role, [budget lines: name, budget, committed, spent, forecast] in $M
 const workstreams = [
-  { key: "pmo", name: "Program management and controls", owner: "Program director (TBD)", lines: [
+  { key: "pmo", name: "Program management and controls", owner: "Program director (TBD)", pct: 8, start: -60, finish: 1090, lines: [
     ["Program office and controls", 180, 60, 22, 180],
     ["Contingency reserve", 420, 0, 0, 420],
   ] },
-  { key: "eng", name: "Engineering and permitting", owner: "Engineering lead (TBD)", lines: [
+  { key: "eng", name: "Engineering and permitting", owner: "Engineering lead (TBD)", pct: 25, start: -150, finish: 300, lines: [
     ["Front-end and detailed engineering", 520, 310, 140, 545],
     ["Permits and environmental studies", 80, 35, 18, 80],
   ] },
-  { key: "proc", name: "Procurement and long-lead equipment", owner: "Procurement lead (TBD)", lines: [
+  { key: "proc", name: "Procurement and long-lead equipment", owner: "Procurement lead (TBD)", pct: 6, start: -30, finish: 610, lines: [
     ["Long-lead process equipment", 2300, 900, 210, 2420],
     ["Electrical and automation", 650, 120, 15, 650],
   ] },
-  { key: "con", name: "Construction", owner: "Construction lead (TBD)", lines: [
+  { key: "con", name: "Construction", owner: "Construction lead (TBD)", pct: 2, start: -20, finish: 820, lines: [
     ["Site preparation and civil works", 900, 260, 75, 900],
     ["Structural, mechanical and piping", 1500, 0, 0, 1500],
   ] },
-  { key: "com", name: "Commissioning and ramp-up", owner: "Operations lead (TBD)", lines: [
+  { key: "com", name: "Commissioning and ramp-up", owner: "Operations lead (TBD)", pct: 0, start: 780, finish: 1090, lines: [
     ["Commissioning and start-up", 300, 0, 0, 300],
     ["Training and operational readiness", 150, 0, 0, 150],
   ] },
@@ -100,6 +100,9 @@ async function main() {
         name: w.name,
         owner: w.owner,
         order,
+        percentComplete: w.pct,
+        plannedStart: day(w.start),
+        plannedFinish: day(w.finish),
         budgetLines: {
           create: w.lines.map(([name, budget, committed, spent, forecast], i) => ({
             name,
@@ -146,6 +149,19 @@ async function main() {
         status: r.status,
         dueDate: r.due === null ? null : day(r.due),
       },
+    });
+  }
+
+  // Placeholder roles, not real people. The .example addresses cannot receive mail.
+  for (const [name, role, ws] of [
+    ["Program director (TBD)", "Program director", "pmo"],
+    ["Engineering lead (TBD)", "Engineering lead", "eng"],
+    ["Procurement lead (TBD)", "Procurement lead", "proc"],
+    ["Construction lead (TBD)", "Construction lead", "con"],
+    ["Operations lead (TBD)", "Operations lead", "com"],
+  ]) {
+    await prisma.teamMember.create({
+      data: { projectId: project.id, name, role, email: `${ws}-lead@placeholder.example`, workstreamId: wsId[ws] },
     });
   }
 

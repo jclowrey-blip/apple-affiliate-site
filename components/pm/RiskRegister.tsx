@@ -28,7 +28,7 @@ import { useOptimisticState } from "./useOptimisticState";
 
 type StatusFilter = "active" | "all" | RiskStatus;
 
-function RiskForm({
+export function RiskForm({
   projectId,
   risk,
   workstreams,

@@ -43,7 +43,22 @@ describe("assistant tool definitions", () => {
   it("mark exactly the writing tools as mutating", () => {
     const writes = assistantTools.filter((t) => t.mutates).map((t) => t.name).sort();
     expect(writes).toEqual(
-      ["create_budget_line", "create_milestone", "create_risk", "create_task", "create_workstream", "save_status_report", "update_budget_line", "update_milestone", "update_risk", "update_task"].sort(),
+      [
+        "add_note",
+        "create_budget_line",
+        "create_milestone",
+        "create_risk",
+        "create_task",
+        "create_workstream",
+        "draft_team_message",
+        "finish_day",
+        "save_status_report",
+        "update_budget_line",
+        "update_milestone",
+        "update_risk",
+        "update_task",
+        "update_workstream",
+      ].sort(),
     );
   });
 });
@@ -128,6 +143,61 @@ describe("write tools", () => {
     expect(await listReports(p.id)).toMatchObject([{ title: "Week 47", source: "assistant" }]);
     expect((await call("list_status_reports", { project: p.slug })).data).toHaveLength(1);
     expect((await call("get_status_report", { reportId: saved.data.id })).data.body).toContain("Narrative.");
+  });
+});
+
+describe("daily loop tools", () => {
+  it("run a check-in end to end: read, update, note, finish, and draft a custom message", async () => {
+    const { p, ws, first, second } = await program();
+    await call("update_milestone", { milestoneId: second.id, dependsOnIds: [first.id] });
+    const { createMember } = await import("../team");
+    const member = await createMember({ projectId: p.id, name: "Dana Reyes", email: "dana@example.com", workstreamId: ws.id });
+
+    const checkin = await call("get_daily_checkin", { project: p.slug });
+    expect(checkin.mutated).toBe(false);
+    expect(checkin.data.workstreams).toMatchObject([{ id: ws.id, percentComplete: 0 }]);
+    expect(checkin.data.team).toMatchObject([{ id: member.id, name: "Dana Reyes", hasEmail: true }]);
+
+    const progress = await call("update_workstream", { workstreamId: ws.id, percentComplete: 35, plannedStart: "2026-01-01", plannedFinish: "2027-12-31" });
+    expect(progress.data).toMatchObject({ percentComplete: 35, plannedStart: "2026-01-01" });
+    await call("update_milestone", { milestoneId: first.id, targetDate: "2027-03-15" });
+    expect((await call("add_note", { project: p.slug, text: "Sponsor asked for a recovery plan" })).mutated).toBe(true);
+
+    const perf = await call("get_schedule_and_cost_performance", { project: p.slug });
+    expect(perf.data.schedule).toMatchObject({ baselineFinish: "2027-06-01", projectedFinish: "2027-06-15", finishSlipDays: 14, criticalPath: ["Design frozen", "Permits granted"] });
+    expect(perf.data.earnedValue.total).toMatchObject({ bac: 400_000_000, ev: 140_000_000, percentComplete: 35 });
+
+    const again = await call("get_daily_checkin", { project: p.slug });
+    expect(again.data.alreadyRecordedToday.map((a: { summary: string }) => a.summary)).toEqual(
+      expect.arrayContaining(["Engineering: progress 0% to 35%", "Sponsor asked for a recovery plan", expect.stringContaining("Milestone Design frozen: target moved from Mar 1, 2027 to Mar 15, 2027 (14 days later)")]),
+    );
+
+    const finished = await call("finish_day", { project: p.slug, notes: "Wrap-up note" });
+    expect(finished.mutated).toBe(true);
+    expect(finished.data.summary).toContain("- Engineering: progress 0% to 35%");
+    expect(finished.data.summary).toContain("- Wrap-up note");
+    expect(finished.data.summary).toContain("(14 days later)");
+    expect(finished.data.messagesDrafted).toMatchObject([{ to: "Dana Reyes", kind: "update_request" }, { to: "Whole team", kind: "summary" }]);
+    expect((await listReports(p.id))[0]).toMatchObject({ kind: "daily", source: "generated" });
+
+    const custom = await call("draft_team_message", { project: p.slug, memberId: member.id, subject: "Recovery plan", body: "Dana, please send the recovery plan by Friday." });
+    expect(custom.data).toMatchObject({ to: "Dana Reyes", saved: true, sent: false });
+    const messages = await call("list_team_messages", { project: p.slug });
+    expect(messages.data.map((m: { status: string }) => m.status)).toEqual(["draft", "draft", "draft"]);
+
+    // Finishing again replaces the auto-drafts but keeps the assistant's own message.
+    await call("finish_day", { project: p.slug });
+    const after = await call("list_team_messages", { project: p.slug });
+    expect(after.data.map((m: { subject: string }) => m.subject).filter((s: string) => s === "Recovery plan")).toHaveLength(1);
+    expect(after.data).toHaveLength(3);
+  });
+
+  it("rejects out-of-range progress and messages with no recipient", async () => {
+    const { p, ws } = await program();
+    expect(await executeTool("update_workstream", { workstreamId: ws.id, percentComplete: 140 })).toMatchObject({ ok: false, mutated: false });
+    expect(await executeTool("update_workstream", { workstreamId: ws.id, plannedStart: "2027-06-01", plannedFinish: "2027-01-01" })).toMatchObject({ ok: false, content: expect.stringContaining("before planned finish") });
+    expect(await executeTool("draft_team_message", { project: p.slug, subject: "x", body: "y" })).toMatchObject({ ok: false, content: expect.stringContaining("memberId or a recipient") });
+    expect(await executeTool("draft_team_message", { project: p.slug, memberId: "nope", subject: "x", body: "y" })).toMatchObject({ ok: false, content: expect.stringContaining("Team member not found") });
   });
 });
 

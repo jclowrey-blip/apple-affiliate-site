@@ -7,10 +7,12 @@ const TABS = [
   { segment: "board", label: "Board" },
   { segment: "list", label: "List" },
   { segment: "timeline", label: "Timeline" },
+  { segment: "daily", label: "Daily" },
   { segment: "program", label: "Program" },
   { segment: "budget", label: "Budget" },
   { segment: "risks", label: "Risks" },
   { segment: "reports", label: "Reports" },
+  { segment: "team", label: "Team" },
 ];
 
 export default function ProjectTabs({ slug }: { slug: string }) {

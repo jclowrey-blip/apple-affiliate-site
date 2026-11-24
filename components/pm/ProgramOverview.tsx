@@ -60,6 +60,9 @@ function WorkstreamCard({ group, slug }: { group: WorkstreamSnapshot; slug: stri
   const [name, setName] = useState(ws?.name ?? "");
   const [owner, setOwner] = useState(ws?.owner ?? "");
   const [description, setDescription] = useState(ws?.description ?? "");
+  const [percent, setPercent] = useState(String(ws?.percentComplete ?? 0));
+  const [plannedStart, setPlannedStart] = useState(ws?.plannedStart ?? "");
+  const [plannedFinish, setPlannedFinish] = useState(ws?.plannedFinish ?? "");
   const openRisks = group.risks.filter((r) => r.status !== "closed");
   const highRisks = openRisks.filter((r) => riskSeverity(r) === "high").length;
   const t = group.totals;
@@ -67,7 +70,11 @@ function WorkstreamCard({ group, slug }: { group: WorkstreamSnapshot; slug: stri
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!ws) return;
-    const result = await runAction(() => updateWorkstreamAction({ id: ws.id, name, owner, description }));
+    const percentComplete = Math.round(Number(percent));
+    if (percent.trim() === "" || Number.isNaN(percentComplete)) return showError("Enter percent complete as a number from 0 to 100.");
+    const result = await runAction(() =>
+      updateWorkstreamAction({ id: ws.id, name, owner, description, percentComplete, plannedStart: plannedStart || null, plannedFinish: plannedFinish || null }),
+    );
     if (!result.ok) return showError(result.error);
     setEditing(false);
   }
@@ -87,7 +94,7 @@ function WorkstreamCard({ group, slug }: { group: WorkstreamSnapshot; slug: stri
         <div className="min-w-0">
           <h3 className="font-display text-base text-ink">{ws ? ws.name : "Not in a workstream"}</h3>
           <p className="text-xs text-graphite">
-            {ws ? (ws.owner ? `Owner: ${ws.owner}` : "No owner set") : "Milestones and risks not assigned to a workstream"}
+            {ws ? `${ws.owner ? `Owner: ${ws.owner}` : "No owner set"} · ${ws.percentComplete}% complete` : "Milestones and risks not assigned to a workstream"}
             {ws?.description ? ` · ${ws.description}` : ""}
           </p>
         </div>
@@ -132,6 +139,27 @@ function WorkstreamCard({ group, slug }: { group: WorkstreamSnapshot; slug: stri
             </label>
             <input id={`ws-desc-${ws.id}`} className={fieldClass} value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelClass} htmlFor={`ws-pct-${ws.id}`}>
+                Percent complete
+              </label>
+              <input id={`ws-pct-${ws.id}`} type="number" min={0} max={100} step={1} className={fieldClass} value={percent} onChange={(e) => setPercent(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor={`ws-start-${ws.id}`}>
+                Planned start
+              </label>
+              <input id={`ws-start-${ws.id}`} type="date" className={fieldClass} value={plannedStart} onChange={(e) => setPlannedStart(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor={`ws-finish-${ws.id}`}>
+                Planned finish
+              </label>
+              <input id={`ws-finish-${ws.id}`} type="date" className={fieldClass} value={plannedFinish} onChange={(e) => setPlannedFinish(e.target.value)} />
+            </div>
+          </div>
+          <p className="-mt-1 text-xs text-graphite">Percent complete and the planned window feed the earned value figures below.</p>
           {confirming ? (
             <div className="rounded-md border border-warn/40 bg-warn/5 p-3">
               <p className="text-sm text-ink">
@@ -292,7 +320,7 @@ export default function ProgramOverview({ snapshot }: { snapshot: ProgramSnapsho
         </h2>
         <ul className="mb-3 space-y-3">
           {snapshot.workstreams.map((group) => (
-            <WorkstreamCard key={`${group.workstream?.id ?? "none"}:${group.workstream?.name}:${group.workstream?.owner}:${group.workstream?.description}`} group={group} slug={project.slug} />
+            <WorkstreamCard key={`${group.workstream?.id ?? "none"}:${JSON.stringify(group.workstream)}`} group={group} slug={project.slug} />
           ))}
         </ul>
         {addForm}

@@ -7,7 +7,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
 import { authEnabled, hasAccess } from "./access";
+import { logActivity } from "./activity";
 import * as budget from "./budget";
+import * as communications from "./communications";
+import { draftTeamMessages, finishDay } from "./daily-run";
+import * as team from "./team";
 import * as milestones from "./milestones";
 import { getProgramSnapshot } from "./program";
 import { buildStatusReport, reportTitle } from "./report-builder";
@@ -17,7 +21,16 @@ import * as workstreams from "./workstreams";
 import * as projects from "./projects";
 import {
   createBudgetLineSchema,
+  createMemberSchema,
   createMilestoneSchema,
+  finishDaySchema,
+  noteSchema,
+  projectIdSchema,
+  updateCommunicationSchema,
+  updateMemberSchema,
+  type CreateMemberInput,
+  type UpdateCommunicationInput,
+  type UpdateMemberInput,
   createRiskSchema,
   createWorkstreamSchema,
   generateReportSchema,
@@ -61,7 +74,9 @@ import {
   PmValidationError,
   type ActionResult,
   type BudgetLine,
+  type Communication,
   type Milestone,
+  type TeamMember,
   type Risk,
   type StatusReport,
   type Workstream,
@@ -254,6 +269,64 @@ export async function deleteReportAction(input: { id: string }): Promise<ActionR
   return run(idSchema, input, async ({ id }) => {
     await reports.deleteReport(id);
     return null;
+  });
+}
+
+// Team and communications
+
+export async function createMemberAction(input: CreateMemberInput): Promise<ActionResult<TeamMember>> {
+  return run(createMemberSchema, input, (data) => team.createMember(data));
+}
+
+export async function updateMemberAction(input: UpdateMemberInput): Promise<ActionResult<TeamMember>> {
+  return run(updateMemberSchema, input, ({ id, ...patch }) => team.updateMember(id, patch));
+}
+
+export async function deleteMemberAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await team.deleteMember(id);
+    return null;
+  });
+}
+
+export async function updateCommunicationAction(input: UpdateCommunicationInput): Promise<ActionResult<Communication>> {
+  return run(updateCommunicationSchema, input, ({ id, ...patch }) => communications.updateCommunication(id, patch));
+}
+
+export async function deleteCommunicationAction(input: { id: string }): Promise<ActionResult> {
+  return run(idSchema, input, async ({ id }) => {
+    await communications.deleteCommunication(id);
+    return null;
+  });
+}
+
+/** Drafts today's update requests for the team. Nothing is sent. */
+export async function draftTeamMessagesAction(input: { projectId: string }): Promise<ActionResult<Communication[]>> {
+  return run(projectIdSchema, input, async ({ projectId }) => {
+    const project = await projects.getProjectById(projectId);
+    if (!project) throw new PmNotFoundError("Project");
+    return draftTeamMessages(project);
+  });
+}
+
+// Daily loop
+
+export async function addNoteAction(input: { projectId: string; text: string }): Promise<ActionResult> {
+  return run(noteSchema, input, async ({ projectId, text }) => {
+    const project = await projects.getProjectById(projectId);
+    if (!project) throw new PmNotFoundError("Project");
+    await logActivity(projectId, text, "note");
+    return null;
+  });
+}
+
+/** Saves the daily summary and drafts today's team messages. Nothing is sent. */
+export async function finishDayAction(input: { projectId: string; notes?: string }): Promise<ActionResult<{ reportId: string; messageCount: number }>> {
+  return run(finishDaySchema, input, async ({ projectId, notes }) => {
+    const project = await projects.getProjectById(projectId);
+    if (!project) throw new PmNotFoundError("Project");
+    const { report, messages } = await finishDay(project, notes);
+    return { reportId: report.id, messageCount: messages.length };
   });
 }
 

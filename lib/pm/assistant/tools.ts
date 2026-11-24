@@ -5,7 +5,10 @@
 // Deliberately absent: delete tools. The assistant can read, create and
 // update; removing data is left to the person, in the UI.
 import { z } from "zod";
+import { logActivity } from "../activity";
 import * as budget from "../budget";
+import { createCommunication, listCommunications } from "../communications";
+import { finishDay, loadDailyContext } from "../daily-run";
 import { todayString } from "../dates";
 import * as milestones from "../milestones";
 import { getProgramSnapshot } from "../program";
@@ -23,9 +26,11 @@ import {
   updateMilestoneSchema,
   updateRiskSchema,
   updateTaskSchema,
+  updateWorkstreamSchema,
 } from "../schemas";
 import { searchTasks } from "../search";
 import * as tasks from "../tasks";
+import { listMembers } from "../team";
 import { PRIORITIES, PmNotFoundError, PmValidationError, RISK_KINDS, RISK_STATUSES, TASK_STATUSES, type Project } from "../types";
 import * as workstreams from "../workstreams";
 
@@ -172,6 +177,26 @@ export const assistantTools: AssistantTool[] = [
     run: async ({ project: slug, ...rest }) => workstreams.createWorkstream(createWorkstreamSchema.parse({ projectId: (await resolveProject(slug)).id, ...rest })),
   }),
   tool({
+    name: "update_workstream",
+    description:
+      "Change a workstream: its percent complete (0-100, which drives earned value), owner, name, description, or the planned start and finish its budget is spread across. Only the fields you pass change.",
+    label: "Updating a workstream",
+    mutates: true,
+    schema: z.object({
+      workstreamId: z.string(),
+      name: z.string().optional(),
+      owner: z.string().optional(),
+      description: z.string().optional(),
+      percentComplete: z.number().int().min(0).max(100).optional(),
+      plannedStart: date.nullable().optional(),
+      plannedFinish: date.nullable().optional(),
+    }),
+    run: async ({ workstreamId, ...rest }) => {
+      const { id, ...patch } = updateWorkstreamSchema.parse({ id: workstreamId, ...rest });
+      return workstreams.updateWorkstream(id, patch);
+    },
+  }),
+  tool({
     name: "create_milestone",
     description: "Add a milestone to a project. Its baseline date is set to the target date.",
     label: "Creating a milestone",
@@ -273,6 +298,124 @@ export const assistantTools: AssistantTool[] = [
     run: async ({ riskId, ...rest }) => {
       const { id, ...patch } = updateRiskSchema.parse({ id: riskId, ...rest });
       return risks.updateRisk(id, patch);
+    },
+  }),
+  tool({
+    name: "get_schedule_and_cost_performance",
+    description:
+      "Timing and cost analysis for one project. Schedule: baseline finish, projected finish and the days between them; each milestone's projected date, slip against baseline and float; and the critical path (the chain of milestones where a day's slip moves the finish). Cost: earned value per workstream and in total (budget, planned value, earned value, actual cost, cost and schedule variance, CPI, SPI, estimate at completion). A null PV or SPI means that workstream has no planned start and finish; say so rather than estimating.",
+    label: "Analysing schedule and cost performance",
+    mutates: false,
+    schema: z.object({ project }),
+    run: async (input) => {
+      const { analysis, performance } = await loadDailyContext(await resolveProject(input.project));
+      const name = (id: string) => analysis.nodes.find((n) => n.id === id)?.name ?? id;
+      return {
+        schedule: {
+          baselineFinish: analysis.baselineFinish,
+          projectedFinish: analysis.forecastFinish,
+          finishSlipDays: analysis.finishSlipDays,
+          hasDependencies: analysis.hasDependencies,
+          criticalPath: analysis.criticalPath.map(name),
+          milestones: analysis.nodes.map((n) => ({
+            id: n.id,
+            name: n.name,
+            baselineDate: n.baselineDate,
+            targetDate: n.targetDate,
+            completedDate: n.completedDate,
+            projectedDate: n.forecastDate,
+            slipDays: n.forecastSlipDays,
+            floatDays: n.floatDays,
+            critical: n.critical,
+            drivenBy: n.drivenById ? name(n.drivenById) : null,
+          })),
+          milestonesPlannedByNow: performance.milestones.plannedByNow,
+          milestonesPlannedByNowDone: performance.milestones.plannedDone,
+        },
+        earnedValue: { workstreams: performance.workstreams, total: performance.total, workstreamsMissingPlannedDates: performance.missingPlan },
+      };
+    },
+  }),
+  tool({
+    name: "get_daily_checkin",
+    description:
+      "What needs confirming with the user today for one project: unfinished milestones that are late, due within 14 days or critical; every workstream's recorded percent complete; budget lines with money moving; open risks and issues that are overdue, due this week or high severity. Also returns what has already been changed or noted today, and the team members. Use it to decide what to ask in a daily check-in.",
+    label: "Reading today's check-in",
+    mutates: false,
+    schema: z.object({ project }),
+    run: async (input) => {
+      const context = await loadDailyContext(await resolveProject(input.project));
+      return {
+        today: context.today,
+        milestones: context.checkin.milestones.map((q) => ({ id: q.milestone.id, name: q.milestone.name, workstream: q.workstream, targetDate: q.milestone.targetDate, baselineDate: q.milestone.baselineDate, why: q.reasons })),
+        workstreams: context.checkin.workstreams.map((w) => ({ id: w.id, name: w.name, owner: w.owner, percentComplete: w.percentComplete })),
+        budgetLines: context.checkin.budgetLines.map((q) => ({ id: q.line.id, name: q.line.name, workstream: q.workstream, budget: q.line.budget, committed: q.line.committed, spent: q.line.spent, forecast: q.line.forecast })),
+        risks: context.checkin.risks.map((q) => ({ id: q.risk.id, title: q.risk.title, kind: q.risk.kind, status: q.risk.status, owner: q.risk.owner, workstream: q.workstream, why: q.reasons })),
+        alreadyRecordedToday: context.activities.map((a) => ({ kind: a.kind, summary: a.summary })),
+        team: context.members.map((m) => ({ id: m.id, name: m.name, role: m.role, workstreamId: m.workstreamId, hasEmail: m.email !== "" })),
+      };
+    },
+  }),
+  tool({
+    name: "add_note",
+    description: "Record something the user told you that isn't a field in the tracker (a decision, a blocker, context). Notes appear in today's daily summary.",
+    label: "Saving a note",
+    mutates: true,
+    schema: z.object({ project, text: z.string().min(1).max(2000) }),
+    run: async (input) => {
+      await logActivity((await resolveProject(input.project)).id, input.text.trim(), "note");
+      return { saved: true };
+    },
+  }),
+  tool({
+    name: "finish_day",
+    description:
+      "Close out today for a project: saves the daily summary (built from the tracked data and today's changes and notes) to the Reports tab, and drafts today's update-request message for each team member plus one summary message to the whole team, on the Team tab. Nothing is sent to anyone. Call it once, after the day's updates are in. Returns the summary text.",
+    label: "Saving the daily summary and drafting team messages",
+    mutates: true,
+    schema: z.object({ project, notes: z.string().max(5000).optional().describe("Any last notes to record before the summary is built.") }),
+    run: async (input) => {
+      const { report, messages } = await finishDay(await resolveProject(input.project), input.notes ?? "");
+      return { summary: report.body, reportId: report.id, messagesDrafted: messages.map((m) => ({ id: m.id, to: m.recipient, kind: m.kind, hasEmail: m.email !== "" })) };
+    },
+  }),
+  tool({
+    name: "list_team_messages",
+    description: "List the messages drafted for the team (recipient, subject, day, draft or sent), newest day first. Includes the full text.",
+    label: "Reading drafted messages",
+    mutates: false,
+    schema: z.object({ project }),
+    run: async (input) => (await listCommunications((await resolveProject(input.project)).id, 40)).map((m) => ({ id: m.id, to: m.recipient, subject: m.subject, forDate: m.forDate, status: m.status, kind: m.kind, body: m.body })),
+  }),
+  tool({
+    name: "draft_team_message",
+    description:
+      "Save a message you have written for a team member (or the whole team) as a draft on the Team tab, for the user to review and send themselves. You cannot send messages. Use plain text, not markdown.",
+    label: "Drafting a message",
+    mutates: true,
+    schema: z.object({
+      project,
+      memberId: z.string().optional().describe("Team member id from get_daily_checkin. Omit for a message to someone not on the team list."),
+      recipient: z.string().optional().describe("Recipient name; required when memberId is omitted."),
+      subject: z.string().min(1).max(200),
+      body: z.string().min(1).max(50_000),
+    }),
+    run: async (input) => {
+      const found = await resolveProject(input.project);
+      const member = input.memberId ? (await listMembers(found.id)).find((m) => m.id === input.memberId) : undefined;
+      if (input.memberId && !member) throw new PmNotFoundError("Team member");
+      if (!member && !input.recipient?.trim()) throw new PmValidationError("Give either a memberId or a recipient name.");
+      const saved = await createCommunication({
+        projectId: found.id,
+        forDate: todayString(),
+        memberId: member?.id ?? null,
+        recipient: member?.name ?? input.recipient!.trim(),
+        email: member?.email ?? "",
+        subject: input.subject,
+        body: input.body,
+        source: "assistant",
+      });
+      return { id: saved.id, to: saved.recipient, saved: true, sent: false };
     },
   }),
   tool({

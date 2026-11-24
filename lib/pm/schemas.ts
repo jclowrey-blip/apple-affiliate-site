@@ -81,18 +81,55 @@ export const updateMilestoneSchema = z.object({
   dependsOnIds: z.array(id).max(50).optional(),
 });
 
+const percent = z.number("Enter a percentage").int("Use a whole number").min(0, "Percent complete can't be below 0").max(100, "Percent complete can't be above 100");
+
 export const createWorkstreamSchema = z.object({
   projectId: id,
   name,
   description: z.string().trim().max(500, "Description is too long").default(""),
   owner: person.default(""),
+  percentComplete: percent.optional(),
+  plannedStart: dateString.nullable().optional(),
+  plannedFinish: dateString.nullable().optional(),
 });
-export const updateWorkstreamSchema = z.object({
+export const updateWorkstreamSchema = z
+  .object({
+    id,
+    name: name.optional(),
+    description: z.string().trim().max(500, "Description is too long").optional(),
+    owner: person.optional(),
+    percentComplete: percent.optional(),
+    plannedStart: dateString.nullable().optional(),
+    plannedFinish: dateString.nullable().optional(),
+  })
+  .refine((v) => !v.plannedStart || !v.plannedFinish || v.plannedStart <= v.plannedFinish, "Planned start must be before planned finish");
+
+const email = z.union([z.literal(""), z.email("That doesn't look like an email address")]);
+export const createMemberSchema = z.object({
+  projectId: id,
+  name,
+  role: z.string().trim().max(80, "Role is too long").default(""),
+  email: z.string().trim().max(200).pipe(email).default(""),
+  workstreamId: id.nullable().optional(),
+});
+export const updateMemberSchema = z.object({
   id,
   name: name.optional(),
-  description: z.string().trim().max(500, "Description is too long").optional(),
-  owner: person.optional(),
+  role: z.string().trim().max(80, "Role is too long").optional(),
+  email: z.string().trim().max(200).pipe(email).optional(),
+  workstreamId: id.nullable().optional(),
 });
+
+export const updateCommunicationSchema = z.object({
+  id,
+  subject: z.string().trim().min(1, "Subject is required").max(200, "Subject is too long").optional(),
+  body: z.string().min(1, "The message is empty").max(50_000, "Message is too long").optional(),
+  status: z.enum(["draft", "sent"]).optional(),
+});
+
+export const finishDaySchema = z.object({ projectId: id, notes: z.string().max(5000, "Notes are too long").default("") });
+export const noteSchema = z.object({ projectId: id, text: z.string().trim().min(1, "Write a note first").max(2000, "Note is too long") });
+export const projectIdSchema = z.object({ projectId: id });
 
 export const createBudgetLineSchema = z.object({
   workstreamId: id,
@@ -148,6 +185,9 @@ export type CreateMilestoneInput = z.input<typeof createMilestoneSchema>;
 export type UpdateMilestoneInput = z.input<typeof updateMilestoneSchema>;
 export type CreateWorkstreamInput = z.input<typeof createWorkstreamSchema>;
 export type UpdateWorkstreamInput = z.input<typeof updateWorkstreamSchema>;
+export type CreateMemberInput = z.input<typeof createMemberSchema>;
+export type UpdateMemberInput = z.input<typeof updateMemberSchema>;
+export type UpdateCommunicationInput = z.input<typeof updateCommunicationSchema>;
 export type CreateBudgetLineInput = z.input<typeof createBudgetLineSchema>;
 export type UpdateBudgetLineInput = z.input<typeof updateBudgetLineSchema>;
 export type CreateRiskInput = z.input<typeof createRiskSchema>;

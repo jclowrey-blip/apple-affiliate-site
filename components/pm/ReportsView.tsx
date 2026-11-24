@@ -51,6 +51,7 @@ function ReportCard({ report, defaultOpen }: { report: StatusReport; defaultOpen
           <span className="block truncate text-sm text-ink">{report.title}</span>
           <span className="text-xs text-graphite">
             {formatDate(report.periodStart)} to {formatDate(report.periodEnd, { year: true })} ·{" "}
+            {report.kind === "daily" ? "Daily summary · " : ""}
             {report.source === "assistant" ? "Drafted by the assistant" : "Generated from tracked data"}
           </span>
         </span>

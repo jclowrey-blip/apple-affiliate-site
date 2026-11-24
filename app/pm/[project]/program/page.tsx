@@ -1,7 +1,10 @@
 import MilestoneManager from "@/components/pm/MilestoneManager";
+import PerformancePanel from "@/components/pm/PerformancePanel";
 import ProgramOverview from "@/components/pm/ProgramOverview";
 import TaskPanelSlot from "@/components/pm/TaskPanelSlot";
+import { analyzeSchedule } from "@/lib/pm/critical-path";
 import { listMilestones } from "@/lib/pm/milestones";
+import { buildPerformance } from "@/lib/pm/performance";
 import { getProgramSnapshot } from "@/lib/pm/program";
 import { listTasks } from "@/lib/pm/tasks";
 import { listWorkstreams } from "@/lib/pm/workstreams";
@@ -26,6 +29,7 @@ export default async function ProgramPage({
   return (
     <>
       <ProgramOverview snapshot={snapshot} />
+      {workstreams.length > 0 && <PerformancePanel analysis={analyzeSchedule(milestones, snapshot.today)} performance={buildPerformance(snapshot)} />}
       <MilestoneManager projectId={project.id} milestones={milestones} tasks={tasks} workstreams={workstreams} />
       <TaskPanelSlot taskId={searchParams.task} />
     </>

@@ -54,7 +54,7 @@ export async function listCommunications(projectId: string, limit = 200): Promis
 }
 
 export async function createCommunication(
-  input: CommunicationDraft & { projectId: string; forDate: DateString; source?: "generated" | "assistant" },
+  input: CommunicationDraft & { projectId: string; forDate: DateString; source?: "generated" | "assistant" | "edited" },
 ): Promise<Communication> {
   const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { id: true } });
   if (!project) throw new PmNotFoundError("Project");
