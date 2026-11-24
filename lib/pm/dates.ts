@@ -56,3 +56,13 @@ export function formatDate(date: string, opts: { year?: boolean } = {}): string 
 export function monthLabel(date: string): string {
   return toUTC(date).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
+
+/** 0 = Monday … 6 = Sunday. */
+export function weekdayIndex(date: string): number {
+  return (toUTC(date).getUTCDay() + 6) % 7;
+}
+
+/** Monday that starts the week containing `date`. */
+export function startOfWeek(date: string): string {
+  return addDays(date, -weekdayIndex(date));
+}
