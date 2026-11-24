@@ -8,17 +8,21 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
-  closestCorners,
+  closestCenter,
+  getFirstCollision,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { moveTaskAction } from "@/lib/pm/actions";
 import { columnOf, moveItem } from "@/lib/pm/reorder";
 import { TASK_STATUSES, TASK_STATUS_LABELS, type DateString, type Task, type TaskStatus } from "@/lib/pm/types";
@@ -33,10 +37,22 @@ function isStatus(id: unknown): id is TaskStatus {
 }
 
 function SortableCard({ task, today }: { task: Task; today: DateString }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+  // The card itself is the drag handle. Registering it as the activator means
+  // Space/Enter only start a drag when the card has focus, so Enter on the
+  // title link inside it still opens the task.
+  const setRefs = useCallback(
+    (node: HTMLLIElement | null) => {
+      setNodeRef(node);
+      setActivatorNodeRef(node);
+    },
+    [setNodeRef, setActivatorNodeRef],
+  );
   return (
     <li
-      ref={setNodeRef}
+      ref={setRefs}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`cursor-grab touch-manipulation rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         isDragging ? "opacity-40" : ""
@@ -108,11 +124,30 @@ export default function Board({ tasks: serverTasks, today }: { tasks: Task[]; to
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Find what the dragged card is over: whatever is under the pointer (or, for
+  // keyboard drags, whatever the card overlaps). When that is a column, pick
+  // the nearest card inside it so the drop lands at a position, not just "in
+  // the column". Keeps the last answer while passing through gaps.
+  const lastOver = useRef<string | null>(null);
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointer = pointerWithin(args);
+    let overId = getFirstCollision(pointer.length > 0 ? pointer : rectIntersection(args), "id");
+    if (overId == null) return lastOver.current ? [{ id: lastOver.current }] : [];
+    if (isStatus(overId)) {
+      const inColumn = new Set(columnOf(tasks, overId).map((t) => t.id));
+      const cards = args.droppableContainers.filter((c) => inColumn.has(String(c.id)));
+      if (cards.length > 0) overId = closestCenter({ ...args, droppableContainers: cards })[0]?.id ?? overId;
+    }
+    lastOver.current = String(overId);
+    return [{ id: overId }];
+  };
+
   const statusOf = (id: string | number): TaskStatus | undefined =>
     isStatus(id) ? id : tasks.find((t) => t.id === id)?.status;
 
   function onDragStart({ active }: DragStartEvent) {
     snapshot.current = tasks;
+    lastOver.current = null;
     setActiveId(String(active.id));
   }
 
@@ -178,7 +213,7 @@ export default function Board({ tasks: serverTasks, today }: { tasks: Task[]; to
     <DndContext
       id="pm-board"
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

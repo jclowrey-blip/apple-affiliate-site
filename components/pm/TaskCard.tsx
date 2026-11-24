@@ -10,7 +10,7 @@ export default function TaskCard({ task, today, overlay }: { task: Task; today: 
   return (
     <div
       className={`relative rounded-md border border-line bg-white p-3 text-left ${
-        overlay ? "rotate-1 shadow-lg" : "hover:border-graphite"
+        overlay ? "border-graphite shadow-lg" : "hover:border-graphite"
       }`}
     >
       <TaskLink taskId={task.id} className="block text-sm leading-snug text-ink after:absolute after:inset-0">
