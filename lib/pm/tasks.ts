@@ -1,3 +1,4 @@
+import { logActivity } from "./activity";
 import { prisma } from "./db";
 import { fromDateString, toDateString } from "./dates";
 import { changedPositions, moveItem } from "./reorder";
@@ -170,7 +171,10 @@ export async function moveTask(id: string, status: TaskStatus, index: number): P
       await tx.task.update({ where: { id: change.id }, data: { status: change.status, order: change.order } });
     }
     const row = await tx.task.findUniqueOrThrow({ where: { id }, include: taskInclude });
-    return toTask(row);
+    return { moved: toTask(row), wasDone: before.find((r) => r.id === id)?.status === "done" };
+  }).then(async ({ moved, wasDone }) => {
+    if (moved.status === "done" && !wasDone) await logActivity(moved.projectId, `Task done: ${moved.title}`);
+    return moved;
   });
 }
 

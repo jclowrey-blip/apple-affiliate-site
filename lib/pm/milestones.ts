@@ -1,5 +1,6 @@
+import { logActivity } from "./activity";
 import { prisma } from "./db";
-import { fromDateString, toDateString } from "./dates";
+import { diffDays, formatDate, fromDateString, toDateString } from "./dates";
 import { PmNotFoundError, PmValidationError, type DateString, type Milestone } from "./types";
 
 const milestoneInclude = { dependsOn: { select: { id: true } } };
@@ -77,7 +78,7 @@ export async function createMilestone(input: {
   const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { id: true } });
   if (!project) throw new PmNotFoundError("Project");
   if (input.workstreamId) await assertWorkstreamInProject(input.workstreamId, input.projectId);
-  return toMilestone(
+  const created = toMilestone(
     await prisma.milestone.create({
       data: {
         projectId: input.projectId,
@@ -89,6 +90,8 @@ export async function createMilestone(input: {
       include: milestoneInclude,
     }),
   );
+  await logActivity(input.projectId, `Milestone added: ${created.name}, target ${formatDate(created.targetDate, { year: true })}`);
+  return created;
 }
 
 /**
@@ -106,15 +109,16 @@ export async function updateMilestone(
     dependsOnIds?: string[];
   },
 ): Promise<Milestone> {
-  const existing = await prisma.milestone.findUnique({ where: { id }, select: { projectId: true, targetDate: true, baselineDate: true } });
+  const existing = await prisma.milestone.findUnique({ where: { id }, include: milestoneInclude });
   if (!existing) throw new PmNotFoundError("Milestone");
+  const before = toMilestone(existing);
   if (patch.workstreamId) await assertWorkstreamInProject(patch.workstreamId, existing.projectId);
   if (patch.dependsOnIds) await assertValidDependencies(id, existing.projectId, patch.dependsOnIds);
 
   const date = (v: DateString | null | undefined) => (v === undefined ? undefined : v === null ? null : fromDateString(v));
   // Pin the old target as the baseline the first time a pre-baseline milestone moves.
   const pinBaseline = patch.targetDate && !patch.baselineDate && !existing.baselineDate ? existing.targetDate : undefined;
-  return toMilestone(
+  const after = toMilestone(
     await prisma.milestone.update({
       where: { id },
       data: {
@@ -128,11 +132,25 @@ export async function updateMilestone(
       include: milestoneInclude,
     }),
   );
+
+  const day = (d: DateString) => formatDate(d, { year: true });
+  const notes: string[] = [];
+  if (after.targetDate !== before.targetDate) {
+    const moved = diffDays(before.targetDate, after.targetDate);
+    notes.push(`target moved from ${day(before.targetDate)} to ${day(after.targetDate)} (${Math.abs(moved)} days ${moved > 0 ? "later" : "earlier"})`);
+  }
+  if (after.completedDate && !before.completedDate) notes.push(`completed ${day(after.completedDate)}`);
+  if (!after.completedDate && before.completedDate) notes.push("reopened");
+  if (patch.baselineDate && after.baselineDate !== before.baselineDate) notes.push(`re-baselined to ${day(after.baselineDate)}`);
+  if (patch.dependsOnIds && [...after.dependsOnIds].sort().join() !== [...before.dependsOnIds].sort().join()) notes.push("dependencies changed");
+  if (notes.length) await logActivity(existing.projectId, `Milestone ${after.name}: ${notes.join("; ")}`);
+  return after;
 }
 
 /** Deletes a milestone. Its tasks are kept and become unassigned. */
 export async function deleteMilestone(id: string): Promise<void> {
-  const existing = await prisma.milestone.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.milestone.findUnique({ where: { id }, select: { projectId: true, name: true } });
   if (!existing) throw new PmNotFoundError("Milestone");
   await prisma.milestone.delete({ where: { id } });
+  await logActivity(existing.projectId, `Milestone deleted: ${existing.name}`);
 }

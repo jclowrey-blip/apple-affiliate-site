@@ -59,7 +59,17 @@ const project: Project = {
   createdAt: "2026-01-01T00:00:00.000Z",
   budget: 0,
 };
-const ws = (id: string, order = 0): Workstream => ({ id, projectId: "p", name: `WS ${id}`, description: "", owner: "", order });
+const ws = (id: string, order = 0): Workstream => ({
+  id,
+  projectId: "p",
+  name: `WS ${id}`,
+  description: "",
+  owner: "",
+  order,
+  percentComplete: 0,
+  plannedStart: null,
+  plannedFinish: null,
+});
 
 describe("money", () => {
   it("formats compactly and exactly", () => {

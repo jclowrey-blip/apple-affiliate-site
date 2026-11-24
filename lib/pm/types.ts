@@ -67,6 +67,11 @@ export type Workstream = {
   description: string;
   owner: string;
   order: number;
+  /** 0-100: how much of the workstream's work is done. Drives earned value. */
+  percentComplete: number;
+  /** The window the workstream's budget is planned across (for planned value). */
+  plannedStart: DateString | null;
+  plannedFinish: DateString | null;
 };
 
 /** Amounts are whole dollars. */
@@ -127,7 +132,43 @@ export type StatusReport = {
   /** Markdown. */
   body: string;
   source: "generated" | "assistant";
+  /** "status" is a period report; "daily" is the end-of-day summary. */
+  kind: "status" | "daily";
   createdAt: string;
+};
+
+export type TeamMember = {
+  id: string;
+  projectId: string;
+  workstreamId: string | null;
+  name: string;
+  role: string;
+  email: string;
+};
+
+/** A drafted message. The tool never sends; "sent" records that the user did. */
+export type Communication = {
+  id: string;
+  projectId: string;
+  memberId: string | null;
+  kind: "update_request" | "summary";
+  recipient: string;
+  email: string;
+  subject: string;
+  body: string;
+  forDate: DateString;
+  status: "draft" | "sent";
+  /** generated = drafted from the data; assistant = written by the assistant; edited = changed by the user. */
+  source: "generated" | "assistant" | "edited";
+  createdAt: string;
+};
+
+export type Activity = {
+  id: string;
+  projectId: string;
+  kind: "change" | "note";
+  summary: string;
+  at: string;
 };
 
 export type Subtask = {

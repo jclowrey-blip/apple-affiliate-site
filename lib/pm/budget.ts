@@ -1,4 +1,6 @@
+import { logActivity } from "./activity";
 import { prisma } from "./db";
+import { formatMoney } from "./money";
 import { PmNotFoundError, type BudgetLine } from "./types";
 
 type Amounts = { budget?: number; committed?: number; spent?: number; forecast?: number };
@@ -38,10 +40,10 @@ export async function listBudgetLines(projectId: string): Promise<BudgetLine[]> 
 
 /** Creates a budget line. The forecast starts equal to the budget unless given. */
 export async function createBudgetLine(input: { workstreamId: string; name: string } & Amounts): Promise<BudgetLine> {
-  const ws = await prisma.workstream.findUnique({ where: { id: input.workstreamId }, select: { id: true } });
+  const ws = await prisma.workstream.findUnique({ where: { id: input.workstreamId }, select: { projectId: true, name: true } });
   if (!ws) throw new PmNotFoundError("Workstream");
   const last = await prisma.budgetLine.aggregate({ where: { workstreamId: input.workstreamId }, _max: { order: true } });
-  return toBudgetLine(
+  const created = toBudgetLine(
     await prisma.budgetLine.create({
       data: {
         workstreamId: input.workstreamId,
@@ -54,12 +56,15 @@ export async function createBudgetLine(input: { workstreamId: string; name: stri
       },
     }),
   );
+  await logActivity(ws.projectId, `Budget line added: ${created.name} (${ws.name}), budget ${formatMoney(created.budget)}`);
+  return created;
 }
 
 export async function updateBudgetLine(id: string, patch: { name?: string } & Amounts): Promise<BudgetLine> {
-  const existing = await prisma.budgetLine.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.budgetLine.findUnique({ where: { id }, include: { workstream: { select: { projectId: true } } } });
   if (!existing) throw new PmNotFoundError("Budget line");
-  return toBudgetLine(
+  const before = toBudgetLine(existing);
+  const after = toBudgetLine(
     await prisma.budgetLine.update({
       where: { id },
       data: {
@@ -71,10 +76,16 @@ export async function updateBudgetLine(id: string, patch: { name?: string } & Am
       },
     }),
   );
+  const changes = (["budget", "committed", "spent", "forecast"] as const)
+    .filter((key) => after[key] !== before[key])
+    .map((key) => `${key} ${formatMoney(before[key])} to ${formatMoney(after[key])}`);
+  if (changes.length) await logActivity(existing.workstream.projectId, `Budget line ${after.name}: ${changes.join("; ")}`);
+  return after;
 }
 
 export async function deleteBudgetLine(id: string): Promise<void> {
-  const existing = await prisma.budgetLine.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.budgetLine.findUnique({ where: { id }, select: { name: true, workstream: { select: { projectId: true } } } });
   if (!existing) throw new PmNotFoundError("Budget line");
   await prisma.budgetLine.delete({ where: { id } });
+  await logActivity(existing.workstream.projectId, `Budget line deleted: ${existing.name}`);
 }

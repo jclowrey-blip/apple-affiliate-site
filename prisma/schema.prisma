@@ -12,34 +12,43 @@ datasource db {
 }
 
 model Project {
-  id          String         @id @default(cuid())
-  slug        String         @unique
+  id          String          @id @default(cuid())
+  slug        String          @unique
   name        String
-  description String         @default("")
-  color       String         @default("#2F6F4E")
-  status      String         @default("active") // active | on_hold | done
-  createdAt   DateTime       @default(now())
-  budget      BigInt         @default(0) // approved total, whole dollars (0 = not set)
+  description String          @default("")
+  color       String          @default("#2F6F4E")
+  status      String          @default("active") // active | on_hold | done
+  createdAt   DateTime        @default(now())
+  budget      BigInt          @default(0) // approved total, whole dollars (0 = not set)
   tasks       Task[]
   milestones  Milestone[]
   workstreams Workstream[]
   risks       Risk[]
   reports     StatusReport[]
+  members     TeamMember[]
+  messages    Communication[]
+  activities  Activity[]
 }
 
 // A major strand of a large program (e.g. engineering, procurement). Optional:
 // small projects can ignore workstreams entirely.
 model Workstream {
-  id          String       @id @default(cuid())
-  name        String
-  description String       @default("")
-  owner       String       @default("")
-  order       Int          @default(0)
-  projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestones  Milestone[]
-  budgetLines BudgetLine[]
-  risks       Risk[]
+  id              String       @id @default(cuid())
+  name            String
+  description     String       @default("")
+  owner           String       @default("")
+  order           Int          @default(0)
+  // For earned value: how much of the work is done, and the planned window
+  // the budget is spread across.
+  percentComplete Int          @default(0)
+  plannedStart    DateTime?
+  plannedFinish   DateTime?
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members         TeamMember[]
+  milestones      Milestone[]
+  budgetLines     BudgetLine[]
+  risks           Risk[]
 
   @@index([projectId])
 }
@@ -89,11 +98,61 @@ model StatusReport {
   periodEnd   DateTime
   body        String
   source      String   @default("generated") // generated | assistant
+  kind        String   @default("status") // status | daily
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
 
   @@index([projectId, createdAt])
+}
+
+// Someone on the project team, optionally tied to the workstream they run.
+model TeamMember {
+  id           String          @id @default(cuid())
+  name         String
+  role         String          @default("")
+  email        String          @default("")
+  projectId    String
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workstreamId String?
+  workstream   Workstream?     @relation(fields: [workstreamId], references: [id], onDelete: SetNull)
+  messages     Communication[]
+  createdAt    DateTime        @default(now())
+
+  @@index([projectId])
+}
+
+// A drafted message to a team member (or the whole team). The tool never
+// sends these; "sent" only records that the person sent it themselves.
+model Communication {
+  id        String      @id @default(cuid())
+  kind      String      @default("update_request") // update_request | summary
+  recipient String // name at the time of drafting
+  email     String      @default("")
+  subject   String
+  body      String
+  forDate   DateTime // the day this message is about
+  status    String      @default("draft") // draft | sent
+  source    String      @default("generated") // generated | assistant
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  memberId  String?
+  member    TeamMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  createdAt DateTime    @default(now())
+
+  @@index([projectId, forDate])
+}
+
+// What changed and what was noted, in order. Feeds the daily summary.
+model Activity {
+  id        String   @id @default(cuid())
+  kind      String   @default("change") // change | note
+  summary   String
+  at        DateTime @default(now())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, at])
 }
 
 model Milestone {

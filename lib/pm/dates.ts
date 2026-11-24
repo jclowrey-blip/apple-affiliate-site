@@ -19,6 +19,11 @@ export function todayString(now: Date = new Date()): DateString {
   return `${y}-${m}-${d}`;
 }
 
+/** The local calendar date of a timestamp (ISO string or Date). */
+export function localDateOf(at: string | Date): DateString {
+  return todayString(typeof at === "string" ? new Date(at) : at);
+}
+
 export function addDays(value: DateString, days: number): DateString {
   const date = fromDateString(value);
   date.setUTCDate(date.getUTCDate() + days);

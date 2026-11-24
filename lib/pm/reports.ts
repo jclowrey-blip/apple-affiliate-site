@@ -10,6 +10,7 @@ function toReport(row: {
   periodEnd: Date;
   body: string;
   source: string;
+  kind: string;
   createdAt: Date;
 }): StatusReport {
   return {
@@ -20,6 +21,7 @@ function toReport(row: {
     periodEnd: toDateString(row.periodEnd),
     body: row.body,
     source: row.source === "assistant" ? "assistant" : "generated",
+    kind: row.kind === "daily" ? "daily" : "status",
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -42,6 +44,7 @@ export async function createReport(input: {
   periodEnd: DateString;
   body: string;
   source?: "generated" | "assistant";
+  kind?: "status" | "daily";
 }): Promise<StatusReport> {
   const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { id: true } });
   if (!project) throw new PmNotFoundError("Project");
@@ -54,6 +57,7 @@ export async function createReport(input: {
         periodEnd: fromDateString(input.periodEnd),
         body: input.body,
         source: input.source ?? "generated",
+        kind: input.kind ?? "status",
       },
     }),
   );
