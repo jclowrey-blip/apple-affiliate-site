@@ -6,12 +6,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { logoutAction } from "@/lib/pm/auth-actions";
 import type { ProjectWithProgress, TaskStatus } from "@/lib/pm/types";
 import AssistantPanel from "./AssistantPanel";
 import { PmContext, type PmContextValue } from "./PmContext";
 import QuickAdd from "./QuickAdd";
 import SearchPalette from "./SearchPalette";
-import { btnPrimary, btnSecondary } from "./styles";
+import { btnGhost, btnPrimary, btnSecondary } from "./styles";
 import { Kbd } from "./ui";
 import { useAssistant } from "./useAssistant";
 
@@ -22,7 +23,16 @@ function isTyping(target: EventTarget | null): boolean {
 
 type Toast = { id: number; message: string };
 
-export default function PmShell({ projects, children }: { projects: ProjectWithProgress[]; children: ReactNode }) {
+export default function PmShell({
+  projects,
+  canSignOut = false,
+  children,
+}: {
+  projects: ProjectWithProgress[];
+  /** Show a sign-out button (only when the tool has a password). */
+  canSignOut?: boolean;
+  children: ReactNode;
+}) {
   const params = useParams<{ project?: string }>();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
@@ -129,6 +139,12 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
               n
             </span>
           </button>
+          {canSignOut && (
+            <button type="button" className={`${btnGhost} shrink-0`} onClick={() => void logoutAction()} aria-label="Sign out">
+              <span aria-hidden>⎋</span>
+              <span className="hidden lg:inline">Sign out</span>
+            </button>
+          )}
         </div>
       </header>
 

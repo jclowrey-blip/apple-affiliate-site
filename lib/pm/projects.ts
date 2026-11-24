@@ -38,8 +38,9 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48)
     .replace(/-+$/g, "");
-  // "api" is taken by the assistant endpoint at /pm/api.
-  if (!slug || slug === "api") return slug ? "api-project" : "project";
+  // /pm/api (assistant endpoint) and /pm/login are real routes, not projects.
+  if (slug === "api" || slug === "login") return `${slug}-project`;
+  if (!slug) return "project";
   return slug;
 }
 

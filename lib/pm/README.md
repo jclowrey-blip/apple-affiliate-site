@@ -14,10 +14,20 @@ npm run db:seed          # optional: two sample projects, 15 tasks (wipes PM dat
 npm run dev              # http://localhost:3000/pm
 ```
 
-In a production build (`npm run build && npm start`) `/pm` returns 404 unless
-`PM_ENABLED=1` is set. There is no authentication yet; `hasAccess()` in
-`access.ts` is the one place to add it (the layout, every page and every
-server action already call it).
+## Access
+
+Set `PM_PASSWORD` in `.env` to require signing in at `/pm/login`. The password
+is the only credential; a signed, HTTP-only cookie keeps you signed in for 30
+days, and changing the password signs every browser out. Eight wrong attempts
+lock sign-in for ten minutes.
+
+With no password set, `/pm` is open in development, and in a production build
+(`npm run build && npm start`) it returns 404 unless `PM_ENABLED=1`. Do not
+run it anywhere other people can reach without a password, and serve it over
+HTTPS if it leaves your machine.
+
+`hasAccess()` in `access.ts` is the single gate: the layout, every page, every
+server action and the assistant endpoint call it.
 
 ## Large programs
 

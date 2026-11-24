@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hasAccess } from "@/lib/pm/access";
+import { authEnabled, hasAccess } from "@/lib/pm/access";
 import type { AssistantEvent } from "@/lib/pm/assistant/events";
 import { ASSISTANT_MODEL, SYSTEM_PROMPT, contextBlock } from "@/lib/pm/assistant/prompt";
 import { assistantTools, executeTool } from "@/lib/pm/assistant/tools";
@@ -38,7 +38,11 @@ function describeFailure(error: unknown): string {
 }
 
 export async function POST(request: Request) {
-  if (!(await hasAccess())) return new Response("Not found", { status: 404 });
+  if (!(await hasAccess())) {
+    return authEnabled()
+      ? Response.json({ error: "You've been signed out. Reload the page and sign in again." }, { status: 401 })
+      : new Response("Not found", { status: 404 });
+  }
 
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });

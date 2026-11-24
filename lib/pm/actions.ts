@@ -6,7 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
-import { hasAccess } from "./access";
+import { authEnabled, hasAccess } from "./access";
 import * as budget from "./budget";
 import * as milestones from "./milestones";
 import { getProgramSnapshot } from "./program";
@@ -77,7 +77,9 @@ async function run<S extends z.ZodType, T>(
   fn: (data: z.output<S>) => Promise<T>,
   opts: { revalidate?: boolean } = {},
 ): Promise<ActionResult<T>> {
-  if (!(await hasAccess())) return { ok: false, error: "The project tool is not available." };
+  if (!(await hasAccess())) {
+    return { ok: false, error: authEnabled() ? "You've been signed out. Reload the page and sign in again." : "The project tool is not available." };
+  }
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   try {
