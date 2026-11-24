@@ -11,6 +11,7 @@ import { logActivity } from "./activity";
 import * as budget from "./budget";
 import * as communications from "./communications";
 import { draftTeamMessages, finishDay } from "./daily-run";
+import { importCsv, type ImportOutcome } from "./import";
 import * as team from "./team";
 import * as milestones from "./milestones";
 import { getProgramSnapshot } from "./program";
@@ -24,6 +25,8 @@ import {
   createMemberSchema,
   createMilestoneSchema,
   finishDaySchema,
+  importSchema,
+  type ImportInput,
   noteSchema,
   projectIdSchema,
   updateCommunicationSchema,
@@ -328,6 +331,22 @@ export async function finishDayAction(input: { projectId: string; notes?: string
     const { report, messages } = await finishDay(project, notes);
     return { reportId: report.id, messageCount: messages.length };
   });
+}
+
+// Import
+
+/** Checks (dryRun, the default) or applies a CSV import. Imports update and create; they never delete. */
+export async function importCsvAction(input: ImportInput): Promise<ActionResult<ImportOutcome>> {
+  return run(
+    importSchema,
+    input,
+    async ({ projectId, entity, csv, mapping, dryRun }) => {
+      const project = await projects.getProjectById(projectId);
+      if (!project) throw new PmNotFoundError("Project");
+      return importCsv(project, entity, csv, { mapping, dryRun });
+    },
+    { revalidate: input?.dryRun === false },
+  );
 }
 
 // Search (read-only, so nothing to revalidate)

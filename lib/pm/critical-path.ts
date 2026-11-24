@@ -116,6 +116,10 @@ export function analyzeSchedule(milestones: readonly Milestone[], today: DateStr
     latest.set(id, limit);
   }
 
+  // Without any dependencies every milestone trivially has zero float, so
+  // "critical" would mean nothing; only flag it when there is a network.
+  const hasDependencies = [...preds.values()].some((p) => p.length > 0);
+
   const nodes: ScheduleNode[] = order.map((id) => {
     const m = byId.get(id)!;
     const f = forecast.get(id)!;
@@ -131,12 +135,11 @@ export function analyzeSchedule(milestones: readonly Milestone[], today: DateStr
       forecastDate: f,
       forecastSlipDays: diffDays(m.baselineDate, f),
       floatDays,
-      critical: !m.completedDate && floatDays === 0,
+      critical: hasDependencies && !m.completedDate && floatDays === 0,
       drivenById: drivenBy.get(id)!,
     };
   });
 
-  const hasDependencies = [...preds.values()].some((p) => p.length > 0);
   const criticalPath: string[] = [];
   if (hasDependencies && forecastFinish) {
     // Start from the unfinished milestone that finishes last, and walk back through its drivers.

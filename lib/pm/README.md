@@ -45,6 +45,54 @@ Any project can also be run as a program. These tabs stay empty until used:
 - **Reports**: "Generate report" builds a markdown status report straight from
   the tracked data, with no AI involved.
 
+- **Daily**: the day's check-in. It lists what needs confirming (milestones
+  that are late, due within two weeks or on the critical path; percent
+  complete per workstream; lines with money moving; open risks that are high
+  severity or due). Answer in place, add notes, then "Finish today's update"
+  saves a daily summary to Reports and drafts the team's messages.
+- **Team**: team members, each optionally tied to a workstream, and the
+  messages drafted for them. The tool never sends anything: edit a draft,
+  then Copy it or use "Open in email", and mark it sent yourself.
+- **Import / export**: move milestones, budget lines, risks and team members
+  to and from other tools as CSV. See below.
+
+Every change to program data is written to an activity log by the data layer,
+whichever screen (or the assistant, or an import) made it. That log is what
+"what changed today" in the daily summary is built from.
+
+### Timing and cost figures
+
+The Program tab also shows, and `lib/pm/critical-path.ts` and
+`lib/pm/performance.ts` compute:
+
+- **Projected finish and critical path.** Each milestone's working duration is
+  taken from the baseline: the gap between its baseline date and its latest
+  predecessor's. Slippage upstream is then carried through the dependencies to
+  give projected dates. Float is how far a milestone can slip before the
+  projected finish moves; the critical path is the chain with none. This needs
+  dependencies between milestones to mean anything.
+- **Earned value** per workstream: budget (BAC), earned value (budget x percent
+  complete), actual cost (spent), planned value, cost and schedule variance,
+  CPI, SPI and estimate at completion. Planned value spreads each workstream's
+  budget evenly between its planned start and finish, which is a
+  simplification, so SPI is a rough signal. Without those dates PV and SPI are
+  shown as n/a rather than guessed.
+
+### Working with the client's system
+
+Nothing here is tied to one outside tool. The Import / export tab reads CSV
+exported from Azure DevOps, MS Project, Primavera or Excel: it recognises
+their usual column names (for example Title, State, Area Path, Target Date,
+Predecessors, Baseline Finish, Assigned To, BAC, EAC), lets you match any it
+doesn't, and reads common date and amount formats. Every import is checked
+first, with a line-by-line report, and only then applied. Imports match rows
+to existing records by name and update them; they never delete. Exports use
+the same columns, so a file can go out, be edited, and come back.
+
+A live connection to a specific system (for example syncing with Azure DevOps
+through its API) is not built. The place for one is a module beside
+`lib/pm/import.ts` that fetches records and feeds the same import functions.
+
 `npm run db:seed:program` adds one sample program. Everything in it is
 placeholder data.
 
@@ -58,6 +106,11 @@ calls the Claude API from the server, so it needs a key:
 # .env
 ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+It can also run the daily check-in as a conversation (it asks, you answer, it
+updates the tracker, then saves the summary and drafts the team's messages),
+report the critical path and earned value, and draft individual messages. It
+cannot send messages; drafts land on the Team tab for you to send.
 
 Questions and the project data needed to answer them are sent to the Claude
 API. Conversation history is kept in the browser tab only. The model, prompt
@@ -74,6 +127,10 @@ and tools live in `lib/pm/assistant/`; the endpoint is
 | `lib/pm/reorder.ts` | Pure task-ordering logic, shared by server and client |
 | `lib/pm/workstreams.ts`, `budget.ts`, `risks.ts`, `reports.ts`, `program.ts` | Data access for program features |
 | `lib/pm/health.ts`, `money.ts`, `report-builder.ts` | Pure logic: schedule health, budget totals, risk severity, report text |
+| `lib/pm/team.ts`, `communications.ts`, `activity.ts` | Data access for team members, drafted messages and the change log |
+| `lib/pm/critical-path.ts`, `performance.ts`, `daily.ts` | Pure logic: projected dates and critical path, earned value, the daily questions, summary and team messages |
+| `lib/pm/daily-run.ts` | Loads the daily context and closes out the day (used by the Daily tab and the assistant) |
+| `lib/pm/csv.ts`, `interchange.ts`, `import.ts` | CSV reading and writing, column matching and value parsing, applying imports and building exports |
 | `lib/pm/assistant/` | The assistant's tools, prompt and event types |
 | `lib/pm/schemas.ts`, `actions.ts` | zod input schemas and the server actions that use them |
 | `app/pm/` | Routes: dashboard, and board / list / timeline per project |

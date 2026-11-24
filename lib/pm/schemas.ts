@@ -131,6 +131,15 @@ export const finishDaySchema = z.object({ projectId: id, notes: z.string().max(5
 export const noteSchema = z.object({ projectId: id, text: z.string().trim().min(1, "Write a note first").max(2000, "Note is too long") });
 export const projectIdSchema = z.object({ projectId: id });
 
+export const importSchema = z.object({
+  projectId: id,
+  entity: z.enum(["milestones", "budget", "risks", "team"]),
+  csv: z.string().min(1, "Choose a file or paste some rows first").max(2_000_000, "That file is too large (2 MB limit)"),
+  mapping: z.record(z.string(), z.number().int().min(0).nullable()).optional(),
+  dryRun: z.boolean().default(true),
+});
+export type ImportInput = z.input<typeof importSchema>;
+
 export const createBudgetLineSchema = z.object({
   workstreamId: id,
   name,

@@ -100,6 +100,7 @@ describe("analyzeSchedule", () => {
   it("handles milestones with no dependencies and an empty project", () => {
     const flat = analyzeSchedule([ms("X", "2027-01-01"), ms("Y", "2027-02-01", { targetDate: "2027-02-10" })], TODAY);
     expect(flat).toMatchObject({ hasDependencies: false, criticalPath: [], baselineFinish: "2027-02-01", forecastFinish: "2027-02-10", finishSlipDays: 9 });
+    expect(flat.nodes.every((n) => !n.critical)).toBe(true); // "critical" means nothing without a network
     expect(analyzeSchedule([], TODAY)).toMatchObject({ nodes: [], criticalPath: [], baselineFinish: null, forecastFinish: null, finishSlipDays: 0 });
   });
 

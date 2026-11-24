@@ -13,6 +13,7 @@ const TABS = [
   { segment: "risks", label: "Risks" },
   { segment: "reports", label: "Reports" },
   { segment: "team", label: "Team" },
+  { segment: "data", label: "Import / export" },
 ];
 
 export default function ProjectTabs({ slug }: { slug: string }) {
