@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { updateTaskAction } from "@/lib/pm/actions";
 import { endOfWeek } from "@/lib/pm/dates";
 import {
@@ -35,6 +36,29 @@ const SORT_LABELS: Record<SortKey, string> = {
   priority: "Priority",
   due: "Due date",
 };
+
+const SORT_KEYS = Object.keys(SORT_LABELS) as SortKey[];
+const DUE_FILTERS: DueFilter[] = ["all", "overdue", "week", "none"];
+
+function oneOf<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+/** Filters and sort live in the URL so they survive reloads and can be shared. */
+function readView(params: URLSearchParams): { filters: Filters; sort: Sort } {
+  return {
+    filters: {
+      status: oneOf(params.get("status"), ["all", ...TASK_STATUSES], "all"),
+      priority: oneOf(params.get("priority"), ["all", ...PRIORITIES], "all"),
+      label: params.get("label") || "all",
+      due: oneOf(params.get("due"), DUE_FILTERS, "all"),
+    },
+    sort: {
+      key: oneOf(params.get("sort"), SORT_KEYS, "board"),
+      dir: oneOf(params.get("dir"), ["asc", "desc"], "asc"),
+    },
+  };
+}
 
 function compare(a: Task, b: Task, key: SortKey): number {
   switch (key) {
@@ -93,13 +117,43 @@ function SortHeader({
 
 export default function ListTable({ tasks: serverTasks, today }: { tasks: Task[]; today: string }) {
   const [tasks, setTasks] = useSyncedState(serverTasks);
-  const [sort, setSort] = useState<Sort>({ key: "board", dir: "asc" });
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const mutate = useMutation();
   const taskHref = useTaskHref();
   const { openQuickAdd } = usePm();
 
   const labels = useMemo(() => Array.from(new Set(tasks.flatMap((t) => t.labels))).sort(), [tasks]);
+  const { filters, sort } = useMemo(() => {
+    const view = readView(new URLSearchParams(searchParams.toString()));
+    // A label that no longer exists (renamed, or a stale link) filters nothing.
+    if (!labels.includes(view.filters.label)) view.filters.label = "all";
+    return view;
+  }, [searchParams, labels]);
+
+  // Writes the view to the query string without a server round trip. Defaults
+  // are omitted to keep URLs short; other params (such as ?task=) are kept.
+  function writeView(next: { filters?: Filters; sort?: Sort }) {
+    const params = new URLSearchParams(searchParams.toString());
+    const f = next.filters ?? filters;
+    const so = next.sort ?? sort;
+    const entries: [string, string, string][] = [
+      ["status", f.status, "all"],
+      ["priority", f.priority, "all"],
+      ["label", f.label, "all"],
+      ["due", f.due, "all"],
+      ["sort", so.key, "board"],
+      ["dir", so.dir, "asc"],
+    ];
+    for (const [key, value, fallback] of entries) {
+      if (value === fallback) params.delete(key);
+      else params.set(key, value);
+    }
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
+  }
+  const setFilters = (next: Filters) => writeView({ filters: next });
+  const setSort = (next: Sort) => writeView({ sort: next });
   const rows = useMemo(() => {
     const sign = sort.dir === "asc" ? 1 : -1;
     return tasks
@@ -109,7 +163,7 @@ export default function ListTable({ tasks: serverTasks, today }: { tasks: Task[]
 
   const filtered = JSON.stringify(filters) !== JSON.stringify(NO_FILTERS);
   const onSort = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+    setSort(sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
 
   // Optimistic inline edit: change locally, roll back if the server rejects it.
   function patchTask(id: string, patch: { status?: TaskStatus; priority?: Priority }) {
@@ -168,7 +222,7 @@ export default function ListTable({ tasks: serverTasks, today }: { tasks: Task[]
         <select
           aria-label="Filter by label"
           className={selectCls}
-          value={labels.includes(filters.label) ? filters.label : "all"}
+          value={filters.label}
           onChange={(e) => setFilters({ ...filters, label: e.target.value })}
         >
           <option value="all">All labels</option>
@@ -195,7 +249,7 @@ export default function ListTable({ tasks: serverTasks, today }: { tasks: Task[]
           value={sort.key}
           onChange={(e) => setSort({ key: e.target.value as SortKey, dir: "asc" })}
         >
-          {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+          {SORT_KEYS.map((k) => (
             <option key={k} value={k}>
               Sort: {SORT_LABELS[k]}
             </option>

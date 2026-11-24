@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   createSubtaskAction,
   deleteSubtaskAction,
@@ -50,7 +50,8 @@ function PanelFrame({ label, onClose, children }: { label: string; onClose: () =
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
-  useEffect(() => {
+  // Layout effect, so Escape works from the first moment the panel is on screen.
+  useLayoutEffect(() => {
     ref.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       // A dialog stacked above the panel (search, quick-add) handles its own Escape.
