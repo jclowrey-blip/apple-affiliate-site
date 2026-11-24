@@ -217,7 +217,8 @@ export default function ProgramOverview({ snapshot }: { snapshot: ProgramSnapsho
     </form>
   );
 
-  if (snapshot.workstreams.length === 0) {
+  // Milestones or risks without a workstream form an "unassigned" group; that alone is not a program yet.
+  if (snapshot.workstreams.every((group) => !group.workstream)) {
     return (
       <div className="space-y-4">
         <EmptyState

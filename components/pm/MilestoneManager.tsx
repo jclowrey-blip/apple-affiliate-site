@@ -24,18 +24,22 @@ function MilestoneRow({
   const { showError } = usePm();
   const [name, setName] = useState(milestone.name);
   const [targetDate, setTargetDate] = useState(milestone.targetDate);
+  const [done, setDone] = useState(Boolean(milestone.completedDate));
+  const [workstreamId, setWorkstreamId] = useState(milestone.workstreamId ?? "");
   const [confirming, setConfirming] = useState(false);
   const slip = diffDays(milestone.baselineDate, milestone.targetDate);
   const dependencies = others.filter((m) => milestone.dependsOnIds.includes(m.id));
   const candidates = others.filter((m) => !milestone.dependsOnIds.includes(m.id));
 
-  // The row is re-keyed on every server change, so failed edits only need to
-  // put the two free-text fields back.
+  // Controls show the new value straight away. The row is re-keyed on every
+  // server change, so only a failed save needs to put them back by hand.
   async function save(patch: Omit<UpdateMilestoneInput, "id">) {
     const result = await runAction(() => updateMilestoneAction({ id: milestone.id, ...patch }));
     if (!result.ok) {
       setName(milestone.name);
       setTargetDate(milestone.targetDate);
+      setDone(Boolean(milestone.completedDate));
+      setWorkstreamId(milestone.workstreamId ?? "");
       showError(result.error);
     }
   }
@@ -81,8 +85,11 @@ function MilestoneRow({
           <select
             aria-label={`Workstream for ${milestone.name}`}
             className={`${selectClass} max-w-[11rem] py-2`}
-            value={milestone.workstreamId ?? ""}
-            onChange={(e) => void save({ workstreamId: e.target.value || null })}
+            value={workstreamId}
+            onChange={(e) => {
+              setWorkstreamId(e.target.value);
+              void save({ workstreamId: e.target.value || null });
+            }}
           >
             <option value="">No workstream</option>
             {workstreams.map((w) => (
@@ -96,8 +103,11 @@ function MilestoneRow({
           <input
             type="checkbox"
             className="h-4 w-4 accent-accent"
-            checked={Boolean(milestone.completedDate)}
-            onChange={(e) => void save({ completedDate: e.target.checked ? todayString() : null })}
+            checked={done}
+            onChange={(e) => {
+              setDone(e.target.checked);
+              void save({ completedDate: e.target.checked ? todayString() : null });
+            }}
             aria-label={`${milestone.name} done`}
           />
           Done

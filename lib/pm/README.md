@@ -19,6 +19,41 @@ In a production build (`npm run build && npm start`) `/pm` returns 404 unless
 `access.ts` is the one place to add it (the layout, every page and every
 server action already call it).
 
+## Large programs
+
+Any project can also be run as a program. These tabs stay empty until used:
+
+- **Program**: workstreams, each with milestones. A milestone keeps its
+  baseline date when its target moves, so slippage is recorded, and can depend
+  on other milestones. Health is done / late / dependency conflict / slipped /
+  on track, rolled up into a red, amber or green status with reasons.
+- **Budget**: lines per workstream with budget, committed, spent and forecast.
+  Type amounts as `250M`, `1.2B` or `1,250,000`. Variance is budget minus
+  forecast. The approved total is set on the project (Edit).
+- **Risks**: risk and issue register. Severity is likelihood x impact for a
+  risk and impact alone for an issue.
+- **Reports**: "Generate report" builds a markdown status report straight from
+  the tracked data, with no AI involved.
+
+`npm run db:seed:program` adds one sample program. Everything in it is
+placeholder data.
+
+## Assistant
+
+The Assistant button opens a chat that can answer questions about the tracked
+data and make updates (create and update only; it has no delete tools). It
+calls the Claude API from the server, so it needs a key:
+
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Questions and the project data needed to answer them are sent to the Claude
+API. Conversation history is kept in the browser tab only. The model, prompt
+and tools live in `lib/pm/assistant/`; the endpoint is
+`app/pm/api/assistant/route.ts`.
+
 ## Layout
 
 | Path | What it holds |
@@ -27,6 +62,9 @@ server action already call it).
 | `lib/pm/types.ts`, `dates.ts` | Plain domain types and date helpers (safe to import anywhere) |
 | `lib/pm/projects.ts`, `tasks.ts`, `subtasks.ts`, `milestones.ts`, `search.ts` | Data access. The only code that touches Prisma, via `db.ts` |
 | `lib/pm/reorder.ts` | Pure task-ordering logic, shared by server and client |
+| `lib/pm/workstreams.ts`, `budget.ts`, `risks.ts`, `reports.ts`, `program.ts` | Data access for program features |
+| `lib/pm/health.ts`, `money.ts`, `report-builder.ts` | Pure logic: schedule health, budget totals, risk severity, report text |
+| `lib/pm/assistant/` | The assistant's tools, prompt and event types |
 | `lib/pm/schemas.ts`, `actions.ts` | zod input schemas and the server actions that use them |
 | `app/pm/` | Routes: dashboard, and board / list / timeline per project |
 | `components/pm/` | UI components |

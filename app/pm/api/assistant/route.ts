@@ -81,6 +81,9 @@ export async function POST(request: Request) {
             tools,
             messages,
             max_iterations: 16,
+            // Send the full conversation on each step instead of having the API
+            // hold it in a message thread, so no conversation state is kept server-side.
+            thread: false,
           },
           { signal: request.signal },
         );
