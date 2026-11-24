@@ -5,3 +5,5 @@ next
 *.db-journal
 *.tsbuildinfo
 .env
+test-results
+playwright-report

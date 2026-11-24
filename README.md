@@ -84,4 +84,10 @@ npm run dev              # http://localhost:3000/pm
   (`projects.ts`, `tasks.ts`, `subtasks.ts`, `milestones.ts`, `search.ts`); only `lib/pm/db.ts`
   and `lib/pm/mappers.ts` know about Prisma. Mutations go through `lib/pm/actions.ts` (server
   actions, zod-validated).
-- **Checks:** `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+- **List filters and sort are in the URL** (`?status=…&label=…&sort=due&dir=desc`), so they
+  survive a reload and can be bookmarked.
+- **Checks:** `npm run lint`, `npm run typecheck`, `npm test` (unit), `npm run build`.
+- **End-to-end tests:** `npm run test:e2e` runs the Playwright suite in `e2e/` against a
+  production build with its own database (`prisma/e2e.db`, re-seeded each run; your dev data is
+  not touched). First time only: `npx playwright install chromium`. It runs `next build`, so stop
+  `npm run dev` first.

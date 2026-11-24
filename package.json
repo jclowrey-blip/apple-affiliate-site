@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -25,6 +26,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
