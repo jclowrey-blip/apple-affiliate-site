@@ -10,7 +10,12 @@ import { STATUS_DOT } from "./styles";
 import TaskLink from "./TaskLink";
 import { EmptyState } from "./ui";
 
-const DAY_W = 22; // px per day
+/** Pixels per day, chosen so a few weeks and a few years are both readable. */
+function dayWidth(spanDays: number): number {
+  if (spanDays <= 150) return 22;
+  if (spanDays <= 500) return 8;
+  return 3;
+}
 const LABEL_W = "w-36 sm:w-60"; // sticky left column
 
 type Group = { key: string; milestone: Milestone | null; tasks: Task[] };
@@ -55,6 +60,10 @@ export default function Timeline({
     .sort();
   const start = weekStart(addDays(dates[0], -7));
   const totalDays = diffDays(start, addDays(dates[dates.length - 1], 21)) + 1;
+  const DAY_W = dayWidth(totalDays);
+  // Label every week when zoomed in, otherwise every 4 or 13 weeks.
+  const labelEvery = DAY_W >= 22 ? 1 : DAY_W >= 8 ? 4 : 13;
+  const marker = Math.max(10, DAY_W - 6);
   const width = totalDays * DAY_W;
   const x = (date: DateString) => diffDays(start, date) * DAY_W;
   const todayX = x(today);
@@ -67,7 +76,7 @@ export default function Timeline({
     const labelWidth = el.querySelector<HTMLElement>("[data-label]")?.offsetWidth ?? 0;
     const lead = Math.min(7 * DAY_W, (el.clientWidth - labelWidth) / 4);
     el.scrollLeft = Math.max(0, todayX - lead);
-  }, [todayX]);
+  }, [todayX, DAY_W]);
 
   if (groups.length === 0) {
     return (
@@ -82,7 +91,7 @@ export default function Timeline({
   const grid = {
     width,
     backgroundImage: "linear-gradient(to right, #E4E4E1 1px, transparent 1px)",
-    backgroundSize: `${7 * DAY_W}px 100%`,
+    backgroundSize: `${7 * labelEvery * DAY_W}px 100%`,
   };
   const todayLine = <span className="absolute inset-y-0 w-px bg-warn/70" style={{ left: todayX + DAY_W / 2 }} aria-hidden />;
   const labelCell = `sticky left-0 z-10 ${LABEL_W} shrink-0 border-r border-line px-3 py-2`;
@@ -102,15 +111,17 @@ export default function Timeline({
               Milestone / task
             </div>
             <div className="relative h-12" style={{ width }}>
-              {weeks.map((week, i) => (
+              {weeks.map((week, i) =>
+                i % labelEvery !== 0 ? null : (
                 <span
                   key={week}
                   className="absolute top-0 flex h-8 items-center whitespace-nowrap border-l border-line pl-1.5"
                   style={{ left: i * 7 * DAY_W }}
                 >
-                  {formatDate(week)}
+                  {formatDate(week, { year: labelEvery > 1 })}
                 </span>
-              ))}
+                ),
+              )}
               <span
                 className="absolute bottom-0 -translate-x-1/2 rounded-t bg-warn px-1 text-[10px] font-medium leading-4 text-white"
                 style={{ left: todayX + DAY_W / 2 }}
@@ -170,7 +181,7 @@ export default function Timeline({
                           >
                             <span
                               className={`block h-4 rounded-full ${overdue ? "bg-warn" : STATUS_DOT[task.status]}`}
-                              style={{ marginLeft: x(task.dueDate) + 3, width: DAY_W - 6 }}
+                              style={{ marginLeft: x(task.dueDate) + DAY_W / 2 - marker / 2, width: marker }}
                               aria-hidden
                             />
                             {overdue ? "Overdue · " : "Due "}

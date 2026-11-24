@@ -4,11 +4,14 @@ import TaskPanelSlot from "@/components/pm/TaskPanelSlot";
 import TaskLink from "@/components/pm/TaskLink";
 import { btnPrimary } from "@/components/pm/styles";
 import { DueDate, EmptyState, PriorityBadge, ProgressBar, StatusBadge } from "@/components/pm/ui";
+import { SeverityBadge } from "@/components/pm/badges";
 import { requireAccess } from "@/lib/pm/access";
-import { endOfWeek, todayString } from "@/lib/pm/dates";
+import { endOfWeek, formatDate, todayString } from "@/lib/pm/dates";
+import { isRiskOverdue, riskNeedsAttention, riskScore, riskSeverity } from "@/lib/pm/health";
 import { listProjects } from "@/lib/pm/projects";
+import { listOpenRisks } from "@/lib/pm/risks";
 import { listOpenTasksDueBy } from "@/lib/pm/tasks";
-import { PROJECT_STATUS_LABELS, type DateString, type TaskWithProject } from "@/lib/pm/types";
+import { PROJECT_STATUS_LABELS, RISK_KIND_LABELS, type DateString, type TaskWithProject } from "@/lib/pm/types";
 
 export const metadata = { title: "Dashboard" };
 
@@ -42,7 +45,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   await requireAccess();
   const today = todayString();
   const weekEnd = endOfWeek(today);
-  const [projects, due] = await Promise.all([listProjects(), listOpenTasksDueBy(weekEnd)]);
+  const [projects, due, openRisks] = await Promise.all([listProjects(), listOpenTasksDueBy(weekEnd), listOpenRisks()]);
+  const attention = openRisks.filter((r) => riskNeedsAttention(r, today)).sort((a, b) => riskScore(b) - riskScore(a));
   const overdue = due.filter((t) => t.dueDate! < today);
   const thisWeek = due.filter((t) => t.dueDate! >= today);
 
@@ -115,6 +119,40 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           <TaskRows tasks={thisWeek} today={today} />
         )}
       </section>
+
+      {attention.length > 0 && (
+        <section aria-labelledby="pm-risks-heading">
+          <h2 id="pm-risks-heading" className="mb-3 font-display text-base text-ink">
+            Risks and issues needing attention <span className="text-graphite">({attention.length})</span>
+          </h2>
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
+            {attention.map((risk) => (
+              <li key={risk.id}>
+                <Link
+                  href={`/pm/${risk.project.slug}/risks`}
+                  className="flex flex-col gap-1 px-4 py-3 hover:bg-paper sm:flex-row sm:items-center sm:gap-4"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{risk.title}</span>
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex items-center gap-1.5 text-xs text-graphite">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: risk.project.color }} aria-hidden />
+                      {risk.project.name}
+                    </span>
+                    <span className="text-xs text-graphite">{RISK_KIND_LABELS[risk.kind]}</span>
+                    <SeverityBadge severity={riskSeverity(risk)} />
+                    {risk.dueDate && (
+                      <span className={`whitespace-nowrap text-xs ${isRiskOverdue(risk, today) ? "font-medium text-warn" : "text-graphite"}`}>
+                        {isRiskOverdue(risk, today) ? "Overdue · " : "Due "}
+                        {formatDate(risk.dueDate)}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <TaskPanelSlot taskId={searchParams.task} />
     </div>

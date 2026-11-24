@@ -10,8 +10,11 @@ export const btnDanger = `${btnBase} bg-warn text-white hover:opacity-90`;
 export const btnGhost = `${btnBase} text-graphite hover:text-ink hover:bg-line/50`;
 
 // 16px text on phones stops iOS from zooming the page when a field is focused.
-export const fieldClass =
-  "w-full rounded-md border border-line bg-white px-3 py-2 text-base sm:text-sm text-ink placeholder:text-graphite/70 focus:outline-none focus:ring-2 focus:ring-accent";
+const fieldBase =
+  "rounded-md border border-line bg-white px-3 py-2 text-base sm:text-sm text-ink placeholder:text-graphite/70 focus:outline-none focus:ring-2 focus:ring-accent";
+export const fieldClass = `w-full ${fieldBase}`;
+/** The same field without a width, for inputs that size to their content (dates). */
+export const fieldAutoClass = fieldBase;
 export const selectClass =
   "rounded-md border border-line bg-white px-2 py-1.5 text-base sm:text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent";
 export const labelClass = "block text-xs font-medium uppercase tracking-wide text-graphite mb-1";

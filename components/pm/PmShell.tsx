@@ -67,7 +67,7 @@ export default function PmShell({ projects, children }: { projects: ProjectWithP
   );
 
   const context = useMemo<PmContextValue>(
-    () => ({ projects, showError, openQuickAdd, openSearch }),
+    () => ({ projects, showError, openQuickAdd, openSearch, openAssistant: () => {} }),
     [projects, showError, openQuickAdd, openSearch],
   );
 

@@ -10,6 +10,8 @@ export type PmContextValue = {
   /** Open the quick-add task input, optionally preset to a status column. */
   openQuickAdd: (opts?: { status?: TaskStatus }) => void;
   openSearch: () => void;
+  /** Open the assistant panel, optionally with a message ready to send. */
+  openAssistant: (draft?: string) => void;
 };
 
 export const PmContext = createContext<PmContextValue | null>(null);

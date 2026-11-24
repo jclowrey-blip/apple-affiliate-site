@@ -10,6 +10,7 @@ import {
   type Project,
   type ProjectStatus,
 } from "@/lib/pm/types";
+import { formatMoneyFull, parseMoney } from "@/lib/pm/money";
 import { btnDanger, btnGhost, btnPrimary, btnSecondary, fieldClass, labelClass, selectClass } from "./styles";
 import { Modal } from "./ui";
 
@@ -20,15 +21,18 @@ export default function ProjectForm({ project, onClose }: { project?: Project; o
   const [description, setDescription] = useState(project?.description ?? "");
   const [color, setColor] = useState<string>(project?.color ?? PROJECT_COLORS[0]);
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "active");
+  const [budget, setBudget] = useState(project?.budget ? formatMoneyFull(project.budget) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const amount = budget.trim() ? parseMoney(budget) : 0;
+    if (amount === null) return setError("Enter the budget as an amount, like 7B, 350M or 1,250,000.");
     setBusy(true);
     setError(null);
-    const fields = { name, description, color, status };
+    const fields = { name, description, color, status, budget: amount };
     const result = project
       ? await updateProjectAction({ id: project.id, ...fields })
       : await createProjectAction(fields);
@@ -118,6 +122,20 @@ export default function ProjectForm({ project, onClose }: { project?: Project; o
               ))}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="pm-project-budget">
+            Approved budget (optional)
+          </label>
+          <input
+            id="pm-project-budget"
+            className={fieldClass}
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            placeholder="e.g. 7B or 1,250,000"
+            inputMode="text"
+          />
         </div>
 
         {error && (
