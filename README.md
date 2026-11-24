@@ -59,3 +59,29 @@ Open http://localhost:3000.
   monospace face reserved for prices/specs so numeric data reads distinctly from prose.
 - All outbound Amazon links route through `AffiliateButton.tsx` so `rel="nofollow sponsored"` and
   the tracking tag stay consistent everywhere — don't hand-write `<a>` tags to Amazon elsewhere.
+
+## Private project management tool (`/pm`)
+
+A single-user project tracker lives under `/pm`. It is separate from the storefront: nothing in
+the storefront links to it, every `/pm` page is `noindex`, and the storefront pages live in the
+`app/(storefront)` route group so the two do not share a header or footer.
+
+```bash
+cp .env.example .env     # DATABASE_URL="file:./pm.db" (SQLite file in prisma/)
+npm install              # also runs `prisma generate`
+npm run db:migrate       # create the tables
+npm run db:seed          # optional: two sample projects, 15 tasks (wipes existing /pm data)
+npm run dev              # http://localhost:3000/pm
+```
+
+- **Views:** dashboard (`/pm`), and per project a kanban board, a sortable/filterable list and a
+  milestone timeline. A task opens as a side panel on any view via `?task=<id>`.
+- **Shortcuts:** `N` adds a task, `Cmd/Ctrl+K` searches all tasks, `Esc` closes.
+- **No authentication yet.** In production builds `/pm` returns 404 unless `PM_ENABLED=1` is set.
+  `requirePmAccess()` in `lib/pm/access.ts` is the single gate (called from `app/pm/layout.tsx`
+  and every server action) — put a real auth check there before exposing the tool anywhere public.
+- **Storage:** SQLite via Prisma. All data access is behind the functions in `lib/pm/`
+  (`projects.ts`, `tasks.ts`, `subtasks.ts`, `milestones.ts`, `search.ts`); only `lib/pm/db.ts`
+  and `lib/pm/mappers.ts` know about Prisma. Mutations go through `lib/pm/actions.ts` (server
+  actions, zod-validated).
+- **Checks:** `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.

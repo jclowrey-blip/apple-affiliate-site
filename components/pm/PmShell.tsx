@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ProjectRef, TaskStatus } from "@/lib/pm/types";
+import { isTypingTarget } from "./hooks";
 import QuickAdd from "./QuickAdd";
+import SearchPalette from "./SearchPalette";
 import { ToastProvider } from "./Toast";
-import { btnPrimary, kbdCls } from "./ui";
+import { btnPrimary, btnSecondary, kbdCls } from "./ui";
 
 type PmContextValue = {
   projects: ProjectRef[];
@@ -24,7 +26,30 @@ export function usePm(): PmContextValue {
 export default function PmShell({ projects, children }: { projects: ProjectRef[]; children: React.ReactNode }) {
   const [quickAdd, setQuickAdd] = useState<{ status?: TaskStatus } | null>(null);
 
+  const [searching, setSearching] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
   const openQuickAdd = useCallback((status?: TaskStatus) => setQuickAdd({ status }), []);
+
+  // Global shortcuts: Cmd/Ctrl+K searches from anywhere; "n" adds a task
+  // unless the user is typing in a field or another dialog is already open.
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setQuickAdd(null);
+        setSearching(true);
+        return;
+      }
+      if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target) || document.querySelector("[data-pm-dialog]")) return;
+      e.preventDefault();
+      setQuickAdd({});
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   const ctx = useMemo(() => ({ projects, openQuickAdd }), [projects, openQuickAdd]);
 
   return (
@@ -37,7 +62,11 @@ export default function PmShell({ projects, children }: { projects: ProjectRef[]
                 orchard<span className="text-accent">.</span> <span className="text-graphite">projects</span>
               </Link>
               <div className="flex-1" />
-              <button type="button" className={btnPrimary} onClick={() => openQuickAdd()}>
+              <button type="button" className={btnSecondary} onClick={() => setSearching(true)} aria-keyshortcuts="Meta+K Control+K">
+                <span>Search</span>
+                <kbd className={kbdCls}>{isMac ? "⌘K" : "Ctrl K"}</kbd>
+              </button>
+              <button type="button" className={btnPrimary} onClick={() => openQuickAdd()} aria-keyshortcuts="N">
                 <span aria-hidden="true">+</span>
                 <span>
                   New<span className="hidden sm:inline"> task</span>
@@ -48,6 +77,7 @@ export default function PmShell({ projects, children }: { projects: ProjectRef[]
           </header>
           <div className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6">{children}</div>
         </div>
+        {searching && <SearchPalette onClose={() => setSearching(false)} />}
         {quickAdd && <QuickAdd projects={projects} initialStatus={quickAdd.status} onClose={() => setQuickAdd(null)} />}
       </PmContext.Provider>
     </ToastProvider>
